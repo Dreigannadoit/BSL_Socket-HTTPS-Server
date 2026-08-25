@@ -32,33 +32,49 @@ while (1) {
         var path = substr(match, 0, sizeof(match) - 9);
         print("File Requested: " + path);
 
-        var BODY = "";
-        var status = "200 OK";
-        var filePath = "";
-
+        // Change Path "/" to default to "/home"
         if (path == "/") {
-            filePath = "public/index.html";
+            var HTTP =  "HTTP/1.1 302 Found\r\n"
+                        +"Location: /home\r\n"
+                        +"Content-Length: 0\r\n"
+                        +"Connection: close\r\n"
+                        +"\r\n";
+
+            socket_write(client, HTTP, sizeof(HTTP));
+            socket_close(client);
+            gc();
         }
-        else if (path == "/about") {
-            filePath = "public/about.html";
-        }
+
         else {
-            filePath = "public/404.html";
-            status = "404 Not Found";
+            var BODY = "";
+            var status = "200 OK";
+            var filePath = "";
+
+            if (path == "/home") {
+                filePath = "public/index.html";
+            }
+            else if (path == "/about") {
+                filePath = "public/about.html";
+            }
+            else {
+                filePath = "public/404.html";
+                status = "404 Not Found";
+            }
+
+            // Read the HTML from disk instead of hardcoding it
+            BODY = readFile(filePath);
+
+            var HTTP =  "HTTP/1.1 " + status + "\r\n"
+                        +"Content-Type: text/html\r\n"
+                        +"Content-Length: "+ sizeof(BODY)+"\r\n"
+                        +"Connection: close\r\n"
+                        +"\r\n";
+
+            socket_write(client, HTTP+BODY, sizeof(HTTP+BODY));
+            socket_close(client);
+            gc();
         }
-
-        // Read the HTML from disk instead of hardcoding it
-        BODY = readFile(filePath);
-
-        var HTTP =  "HTTP/1.1 " + status + "\r\n"
-                    +"Content-Type: text/html\r\n"
-                    +"Content-Length: "+ sizeof(BODY)+"\r\n"
-                    +"Connection: close\r\n"
-                    +"\r\n";
-
-        socket_write(client, HTTP+BODY, sizeof(HTTP+BODY));
-        socket_close(client);
-        gc();
+        
     }
 }
 
