@@ -1,27 +1,20 @@
-// My code
-
 include("lib/socket.bzg");
-// 1. Initialize Socket
 
 if (socket_init() < 0) {
     print("Socket Initialization Failed\n");
-} 
-else {
+} else {
     print("Socket Ready\n");
 }
 
-// 2. Create Socket Server
 var server = socket_create();
 if (server < 0) {
     print("Socket Creation Failed\n");
 }
 
-// 3. Bind Server to Port 8080
 if (socket_bind(server, 0, 8080) < 0) {
     print("Socket Bind Failed.\n");
 }
 
-// 4. Listen for incoming connections
 if (socket_listen(server, 5) < 0) {
     print("socket_listen() Failed.\n");
 }
@@ -29,63 +22,43 @@ if (socket_listen(server, 5) < 0) {
 print("Server running on http://localhost:8080/\n");
 
 while (1) {
-    // 5. Accept Client Connection
     var client = socket_accept(server);
     print("Client connected!\n");
 
     var data = socket_read(client, 1024);
 
     if (sizeof(data) >= 0) {
-        //print("Received: " + data);
-        var BODY =  "<!DOCTYPE html>"                   
-                    +"<html>"
-                    +"<head><title>BSL Socket Server</title></head>"
-                    +"<body>"
-                    +"<h1>Hello from BSL HTTP Server </h1>"
-                    +"<p>Your browser just spoke to a custom BSL_Socket  server.</p>"
-                    +"</body>"
-                    +"</html>";
-
-        var HTTP =  "HTTP/1.1 200 OK\r\n"                
-                    +"Content-Type: text/html\r\n"       
-                    +"Content-Length: "+ sizeof(BODY)+"\r\n"    
-                    +"Connection: close\r\n"
-                    +"\r\n";
-
         var match = regex("/.* HTTP/1.1", data);
         var path = substr(match, 0, sizeof(match) - 9);
-        print("File Requested: " + path); 
+        print("File Requested: " + path);
+
+        var BODY = "";
+        var status = "200 OK";
+        var filePath = "";
 
         if (path == "/") {
-            print("Serving index");
+            filePath = "public/index.html";
         }
-        
         else if (path == "/about") {
-            path[0] = " "; // remove leading slash
-            print("Serving file: " + path);
-
-            BODY = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"><title>BSL HTTP Server</title><style>body{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background-color:#f5f5f7;color:#1d1d1f}.container{text-align:center;padding:2rem;background:#ffffff;border-radius:12px;box-shadow:0 4px 6px rgba(0,0,0,0.05);max-width:400px}h1{font-size:1.5rem;margin-bottom:1rem;color:#0066cc}p{font-size:1rem;line-height:1.5;margin:0}</style></head><body><div class=\"container\"><h1>Hello from BSL HTTP Server</h1><p>Your browser just spoke to a custom BSL_Socket server.</p></div></body></html>";
-            HTTP =  "HTTP/1.1 200 OK\r\n"                
-                    +"Content-Type: text/html\r\n"       
-                    +"Content-Length: "+ sizeof(BODY)+"\r\n"    
-                    +"Connection: close\r\n"
-                    +"\r\n";
+            filePath = "public/about.html";
         }
         else {
-            print("File not found: " + path);
-            BODY = "<h1>404 Not Found</h1>";
-            HTTP =  "HTTP/1.1 404 Not Found\r\n"                
-                    +"Content-Type: text/html\r\n"       
-                    +"Content-Length: "+ sizeof(BODY)+"\r\n"    
+            filePath = "public/404.html";
+            status = "404 Not Found";
+        }
+
+        // Read the HTML from disk instead of hardcoding it
+        BODY = readFile(filePath);
+
+        var HTTP =  "HTTP/1.1 " + status + "\r\n"
+                    +"Content-Type: text/html\r\n"
+                    +"Content-Length: "+ sizeof(BODY)+"\r\n"
                     +"Connection: close\r\n"
                     +"\r\n";
-        }                          
 
         socket_write(client, HTTP+BODY, sizeof(HTTP+BODY));
-
-        //print(HTTP + BODY);
-        socket_close(client); //
-        gc();   // manual garbage collection
+        socket_close(client);
+        gc();
     }
 }
 
