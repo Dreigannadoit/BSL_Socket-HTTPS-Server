@@ -1,0 +1,10 @@
+loadNative("socket/socket.dll", "socket_init");
+loadNative("socket/socket.dll", "socket_close");
+loadNative("socket/socket.dll", "socket_cleanup");
+loadNative("socket/socket.dll", "socket_create");
+loadNative("socket/socket.dll", "socket_bind");
+loadNative("socket/socket.dll", "socket_listen");
+loadNative("socket/socket.dll", "socket_accept");
+loadNative("socket/socket.dll", "socket_connect");
+loadNative("socket/socket.dll", "socket_read");
+loadNative("socket/socket.dll", "socket_write");
