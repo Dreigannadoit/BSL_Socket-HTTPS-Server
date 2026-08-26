@@ -3,14 +3,14 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as CANNON from "cannon-es";
 
 const hud = document.getElementById("hud");
-const GLB_URL = "http://localhost:8081/maze_platform.glb";
+const GLB_URL = "http://localhost:8081/maze_platform_2.glb";
 
 // ── Three.js scene ──
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xdfe6ea);
 
 const camera = new THREE.PerspectiveCamera(
-    40,
+    45,
     window.innerWidth / window.innerHeight,
     0.05,
     200
@@ -46,7 +46,7 @@ scene.add(mistPlane);
 
 
 const sun = new THREE.DirectionalLight(0xffffff, 2.4); // ★ boosted further — much brighter key light
-sun.position.set(16, 8, 4); // ★ lower elevation, strongly off to one side — reads as a diagonal sun, not overhead
+sun.position.set(16, 80, 4); // ★ lower elevation, strongly off to one side — reads as a diagonal sun, not overhead
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.near = 0.1;
@@ -55,7 +55,7 @@ sun.shadow.camera.left = -15;
 sun.shadow.camera.right = 15;
 sun.shadow.camera.top = 15;
 sun.shadow.camera.bottom = -15;
-sun.shadow.radius =3.5;     // ★ tightened further for a crisper, more defined shadow edge
+sun.shadow.radius =6.5;     // ★ tightened further for a crisper, more defined shadow edge
 sun.shadow.bias = -0.0006;   // ★ slightly increased to avoid peter-panning at the new grazing angle
 scene.add(sun);
 
@@ -104,7 +104,7 @@ const floorContact = new CANNON.ContactMaterial(floorMaterial, ballMaterial, {
 world.addContactMaterial(floorContact);
 
 world.defaultContactMaterial.friction = 0.55;
-world.defaultContactMaterial.restitution = 0.2;
+world.defaultContactMaterial.restitution = 0.9;
 
 // ── Ball ──
 const BALL_RADIUS = 0.35;
@@ -346,12 +346,14 @@ loader.load(
     GLB_URL,
     (gltf) => {
         const root = gltf.scene;
-        root.scale.multiplyScalar(5.6);
+        root.scale.multiplyScalar(1.4);
         root.updateMatrixWorld(true);
+        root.rotateY(Math.PI / 2); 
         scene.add(root);
 
         const spawnNode = root.getObjectByName("Spawn");
         const collisionRoot = root.getObjectByName("CollisionShapes");
+        const glowPathRoot = root.getObjectByName("GlowPath");
 
         const spawnPos = new THREE.Vector3();
         if (spawnNode) {
@@ -364,6 +366,22 @@ loader.load(
         ballBody.position.set(spawnPos.x, spawnPos.y, spawnPos.z);
         ballBody.velocity.set(0, 0, 0);
         ballBody.angularVelocity.set(0, 0, 0);
+
+        // ── Respawn anchor ──
+        // Start the checkpoint at spawn itself, so falling before ever
+        // touching ground still sends the player somewhere sane.
+        lastSafePosition.copy(spawnPos);
+
+        // Derive the "fell off the world" threshold from the level's own
+        // geometry instead of a hardcoded number, so it still works if the
+        // map changes size/scale later. Anything this far below the lowest
+        // collision mesh definitely isn't on the map anymore.
+        if (collisionRoot) {
+            const bounds = new THREE.Box3().setFromObject(collisionRoot);
+            fallThresholdY = bounds.min.y - FALL_MARGIN;
+        } else {
+            fallThresholdY = spawnPos.y - FALL_MARGIN;
+        }
 
         let colliderCount = 0;
         if (collisionRoot) {
@@ -404,6 +422,12 @@ loader.load(
             console.warn('No "CollisionShapes" node found — no colliders built.');
         }
 
+        if (glowPathRoot) {
+            setupGlowPath(glowPathRoot);
+        } else {
+            console.warn('No "GlowPath" node found — skipping neon path glow.');
+        }
+
         hud.textContent =
             `Loaded (5.6x world). ${colliderCount} collision meshes. WASD / Arrows to roll.`;
     },
@@ -413,6 +437,41 @@ loader.load(
         hud.textContent = "Failed to load maze_platform.glb — check console.";
     }
 );
+
+// ── Respawn system ──
+// lastSafePosition is stamped every frame the ball is grounded (see
+// applyRollInput → checkGround, which already runs every frame). Because
+// isGrounded flips false the instant the ball leaves a platform, whatever
+// got saved right before that is effectively the edge the ball fell from —
+// exactly the "respawn where I fell off" behavior asked for, with no extra
+// edge-detection logic needed.
+const lastSafePosition = new THREE.Vector3();
+const FALL_MARGIN = 5; // world units below the level's lowest collision mesh before we call it "fell off"
+let fallThresholdY = -Infinity; // set once the level geometry loads; -Infinity until then so nothing triggers early
+
+function updateRespawnAnchor() {
+    if (isGrounded) {
+        lastSafePosition.copy(ballBody.position);
+    }
+}
+
+function checkRespawn() {
+    if (ballBody.position.y < fallThresholdY) {
+        respawnBall();
+    }
+}
+
+function respawnBall() {
+    // Small +0.3 lift, same as the initial spawn placement, so the ball
+    // doesn't spawn embedded in the floor it was standing on.
+    ballBody.position.set(lastSafePosition.x, lastSafePosition.y + 0.3, lastSafePosition.z);
+    ballBody.velocity.set(0, 0, 0);
+    ballBody.angularVelocity.set(0, 0, 0);
+    floorBounceCount = 0;
+    suppressUntil = 0;
+    bounceTimer = 0;
+    playHotspotSound(0.6); // reuse the existing (previously unwired) cue as a respawn sound
+}
 
 function addTrimeshCollider(mesh) {
     mesh.updateWorldMatrix(true, false);
@@ -439,6 +498,99 @@ function addTrimeshCollider(mesh) {
     const body = new CANNON.Body({ mass: 0, material: bodyMaterial });
     body.addShape(shape);
     world.addBody(body);
+}
+
+// ── Neon glow path ──
+// Visual-only markers (no physics), purely decorative — swap their placeholder
+// prototype texture for a bright emissive core plus two additive "halo"
+// duplicates (tight + wide) stacked around it. Layering two halos at
+// different sizes/opacities fakes a bloom falloff — bright near the surface,
+// soft and wide further out — without the cost of a full postprocessing pass.
+const GLOW_COLOR = 0x33ccff;
+const glowMaterials = []; // { mat, role } — pulsed each frame
+
+function setupGlowPath(glowRoot) {
+    // Collect the target meshes into a plain array FIRST. Mutating the
+    // scene graph (child.add(halo)) while glowRoot.traverse() is still
+    // walking it is what caused the stack overflow: traverse() reads the
+    // live `children` array, so a halo added mid-walk got visited too,
+    // and (since it's also a Mesh) spawned a halo of its own — recursing
+    // forever. Working from a snapshot array avoids touching the tree
+    // until traversal is fully done.
+    const targets = [];
+    glowRoot.traverse((child) => {
+        if (child.isMesh) targets.push(child);
+    });
+
+    for (const child of targets) {
+        // Strip the old prototype texture — the glow reads as pure emissive
+        // light now, not a textured surface.
+        const coreMat = new THREE.MeshStandardMaterial({
+            color: GLOW_COLOR,
+            emissive: GLOW_COLOR,
+            emissiveIntensity: 2.6,
+            roughness: 0.3,
+            metalness: 0,
+            toneMapped: false, // let emissive push past 1.0 and actually read as "hot"
+        });
+        child.material = coreMat;
+        child.castShadow = false;
+        child.receiveShadow = false;
+        glowMaterials.push({ mat: coreMat, role: "core" });
+
+        // Tight, bright halo — hugs the geometry closely
+        const innerMat = new THREE.MeshBasicMaterial({
+            color: GLOW_COLOR,
+            transparent: true,
+            opacity: 0.55,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            toneMapped: false,
+        });
+        const innerHalo = new THREE.Mesh(child.geometry, innerMat);
+        innerHalo.scale.setScalar(1.18);
+        innerHalo.renderOrder = 1;
+        child.add(innerHalo);
+        glowMaterials.push({ mat: innerMat, role: "haloInner" });
+
+        // Wide, soft halo — the part that reads as ambient light bleeding
+        // off the path rather than the object itself
+        const outerMat = new THREE.MeshBasicMaterial({
+            color: GLOW_COLOR,
+            transparent: true,
+            opacity: 0.22,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            toneMapped: false,
+        });
+        const outerHalo = new THREE.Mesh(child.geometry, outerMat);
+        outerHalo.scale.setScalar(1.55);
+        outerHalo.renderOrder = 1;
+        child.add(outerHalo);
+        glowMaterials.push({ mat: outerMat, role: "haloOuter" });
+    }
+}
+
+// Gentle breathing pulse so the path doesn't sit static — noticeable but
+// not strobing. Each layer pulses over a different range so the glow feels
+// like it has depth rather than just uniformly brightening/dimming.
+function updateGlowPulse(elapsed) {
+    const pulse = 0.5 + Math.sin(elapsed * 2.2) * 0.5; // 0 → 1
+    for (const { mat, role } of glowMaterials) {
+        switch (role) {
+            case "core":
+                mat.emissiveIntensity = 2.2 + pulse * 1.2; // ~2.2–3.4
+                break;
+            case "haloInner":
+                mat.opacity = 0.4 + pulse * 0.3; // ~0.4–0.7
+                break;
+            case "haloOuter":
+                mat.opacity = 0.14 + pulse * 0.22; // ~0.14–0.36
+                break;
+        }
+    }
 }
 
 // ── Controls ──
@@ -535,9 +687,9 @@ function checkGround() {
 }
 
 // ── Movement tuning ──
-const MAX_SPEED = 4.3;
-const ACCEL = 9;
-const DECEL_RATE = 3.5;
+const MAX_SPEED = 4.6;
+const ACCEL = 15;
+const DECEL_RATE = 1.5;
 const currentInput = { x: 0, z: 0 };
 
 function applyRollInput(dt) {
@@ -660,10 +812,14 @@ function animate() {
         -ballBody.velocity.x * invRadius
     );
 
+    updateRespawnAnchor();
+    checkRespawn();
+
     ballMesh.position.copy(ballBody.position);
     ballMesh.quaternion.copy(ballBody.quaternion);
 
     updateAudio(dt);
+    updateGlowPulse(clock.elapsedTime);
     updateSunFollow();
     updateCamera();
     renderer.render(scene, camera);
