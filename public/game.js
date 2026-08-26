@@ -99,6 +99,7 @@ world.defaultContactMaterial.restitution = 0.2;
 
 // ── Ball ──
 const BALL_RADIUS = 0.35;
+const BALL_GLB_URL = "http://localhost:8081/assets/ball.glb";
 
 function createBallTexture() {
     const size = 256;
@@ -131,16 +132,56 @@ function createBallTexture() {
     return texture;
 }
 
-const ballMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(BALL_RADIUS, 32, 32),
-    new THREE.MeshStandardMaterial({
-        map: createBallTexture(),
-        roughness: 0.4,
-        metalness: 0.1,
-    })
-);
-ballMesh.castShadow = true;
+// ballMesh is a Group so the loaded GLB (or the fallback sphere) can be
+// swapped/added as a child while everything else keeps referencing
+// ballMesh.position / ballMesh.quaternion exactly as before.
+const ballMesh = new THREE.Group();
 scene.add(ballMesh);
+
+const ballLoader = new GLTFLoader();
+ballLoader.load(
+    BALL_GLB_URL,
+    (gltf) => {
+        const model = gltf.scene;
+
+        // Normalize the imported model to BALL_RADIUS and recenter it on
+        // the origin, since we don't control the source file's own scale
+        // or pivot — this keeps it in sync with the physics sphere.
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        const modelRadius = Math.max(size.x, size.y, size.z) / 2;
+        const scale = modelRadius > 0 ? BALL_RADIUS / modelRadius : 1;
+        model.scale.setScalar(scale);
+        model.position.copy(center).multiplyScalar(-scale);
+
+        model.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        ballMesh.add(model);
+    },
+    undefined,
+    (err) => {
+        console.error("Failed to load ball.glb — falling back to procedural ball:", err);
+        ballMesh.add(
+            new THREE.Mesh(
+                new THREE.SphereGeometry(BALL_RADIUS, 32, 32),
+                new THREE.MeshStandardMaterial({
+                    map: createBallTexture(),
+                    roughness: 0.4,
+                    metalness: 0.1,
+                })
+            )
+        );
+    }
+);
 
 const ballBody = new CANNON.Body({
     mass: 0.4,
@@ -153,6 +194,127 @@ const ballBody = new CANNON.Body({
 });
 
 world.addBody(ballBody);
+
+// ── Audio: Web Audio API sound system ──
+const ASSET_BASE = "http://localhost:8081/assets/";
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const masterGain = audioCtx.createGain();
+masterGain.gain.value = 1.0;
+masterGain.connect(audioCtx.destination);
+
+const soundBuffers = {}; // name -> decoded AudioBuffer
+
+const SOUND_FILES = {
+    bounce1: "bounce1.mp3",
+    bounce2: "bounce2.mp3",
+    bounce3: "bounce3.mp3",
+    bounce4: "bounce4.mp3",
+    bounce5: "bounce5.mp3",
+    engine: "engine.mp3",
+    hotspot: "hotspot.mp3",
+    rolling: "rolling.mp3",
+};
+
+async function loadSound(name, file) {
+    const res = await fetch(ASSET_BASE + file);
+    const arrayBuffer = await res.arrayBuffer();
+    soundBuffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+}
+
+const soundsReady = Promise.all(
+    Object.entries(SOUND_FILES).map(([name, file]) => loadSound(name, file))
+).catch((err) => console.error("Failed to load audio assets:", err));
+
+// Browsers block audio until a user gesture — unlock on first input.
+function unlockAudio() {
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    window.removeEventListener("keydown", unlockAudio);
+    window.removeEventListener("pointerdown", unlockAudio);
+}
+window.addEventListener("keydown", unlockAudio);
+window.addEventListener("pointerdown", unlockAudio);
+
+// ★ One-shot bounce sound: picks randomly from bounce1–bounce5
+const BOUNCE_NAMES = ["bounce1", "bounce2", "bounce3", "bounce4", "bounce5"];
+
+function playBounceSound(volume = 1) {
+    const name = BOUNCE_NAMES[Math.floor(Math.random() * BOUNCE_NAMES.length)];
+    const buffer = soundBuffers[name];
+    if (!buffer) return; // assets may still be loading — skip rather than queue
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    const gain = audioCtx.createGain();
+    gain.gain.value = volume;
+    source.connect(gain).connect(masterGain);
+    source.start();
+}
+
+// Available for future use (e.g. a checkpoint / pickup trigger) — not wired
+// to any event yet since none was specified.
+function playHotspotSound(volume = 1) {
+    const buffer = soundBuffers.hotspot;
+    if (!buffer) return;
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    const gain = audioCtx.createGain();
+    gain.gain.value = volume;
+    source.connect(gain).connect(masterGain);
+    source.start();
+}
+
+// ★ Looping engine + rolling sources, started once at silence and then
+// smoothly faded via their gain nodes each frame in updateAudio().
+let engineGain = null;
+let rollingGain = null;
+
+function startLoopingSound(name) {
+    const buffer = soundBuffers[name];
+    if (!buffer) return null;
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0;
+    source.connect(gain).connect(masterGain);
+    source.start();
+    return gain;
+}
+
+soundsReady.then(() => {
+    engineGain = startLoopingSound("engine");
+    rollingGain = startLoopingSound("rolling");
+});
+
+// Volume tuning
+const ENGINE_MIN_GAIN = 0.05;        // faint idle noise as soon as the player inputs
+const ENGINE_MAX_GAIN = 0.35;        // full volume at max speed (was 0.6 — too loud)
+const ENGINE_SMOOTH = 1.8;           // slower ramp from faint → full than before
+const ROLLING_MAX_GAIN = 0.5;
+const ROLLING_MOVE_THRESHOLD = 0.05; // m/s below which the ball counts as stopped
+const AUDIO_SMOOTH = 6;              // rolling gain transition speed — unchanged
+
+function updateAudio(dt) {
+    const speed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
+    const speedRatio = THREE.MathUtils.clamp(speed / MAX_SPEED, 0, 1);
+    const isControlling = keys.forward || keys.back || keys.left || keys.right;
+
+    // Engine: only while the player is actively steering, faint → loud with speed
+    if (engineGain) {
+        const targetGain = isControlling
+            ? ENGINE_MIN_GAIN + (ENGINE_MAX_GAIN - ENGINE_MIN_GAIN) * speedRatio
+            : 0;
+        const engineEase = 1 - Math.exp(-ENGINE_SMOOTH * dt);
+        engineGain.gain.value += (targetGain - engineGain.gain.value) * engineEase;
+    }
+
+    // Rolling: plays whenever the ball is actually moving, controlled or not
+    if (rollingGain) {
+        const targetGain = speed > ROLLING_MOVE_THRESHOLD ? ROLLING_MAX_GAIN * speedRatio : 0;
+        const rollingEase = 1 - Math.exp(-AUDIO_SMOOTH * dt);
+        rollingGain.gain.value += (targetGain - rollingGain.gain.value) * rollingEase;
+    }
+}
 
 // ★ Bounce overlay system: smooth blending after wall impact
 let wallHitPending = false;      // set on collision, processed next frame
@@ -312,6 +474,7 @@ ballBody.addEventListener("collide", (event) => {
     if (Math.abs(normal.y) < 0.7) {
         // wall collision — unchanged
         wallHitPending = true;
+        playBounceSound();
         return;
     }
 
@@ -328,6 +491,7 @@ ballBody.addEventListener("collide", (event) => {
     }
     lastBounceTime = now;
     floorBounceCount++;
+    playBounceSound(0.8);
 
     if (floorBounceCount >= BOUNCE_LIMIT) {
         // This is the 3rd bounce — let it happen, then suppress afterward
@@ -364,7 +528,7 @@ function checkGround() {
 // ── Movement tuning ──
 const MAX_SPEED = 4.3;
 const ACCEL = 9;
-const DECEL_RATE = 1.2;
+const DECEL_RATE = 3.5;
 const currentInput = { x: 0, z: 0 };
 
 function applyRollInput(dt) {
@@ -382,12 +546,17 @@ function applyRollInput(dt) {
     const noInput = targetX === 0 && targetZ === 0;
 
     if (noInput) {
-        // ★ No input → do NOT force velocity to zero.
-        // Let physics (gravity + friction) move the ball naturally.
-        // Only reset the smoothed input values for next time.
+        // ★ No input → ease horizontal velocity toward zero (DECEL_RATE)
+        // instead of relying purely on friction/damping, which coasted
+        // for far too long. Vertical velocity is left untouched so
+        // falling/landing still behaves naturally.
         currentInput.x = 0;
         currentInput.z = 0;
-        return;   // ← skip all velocity manipulation
+
+        const decelEase = 1 - Math.exp(-DECEL_RATE * dt);
+        ballBody.velocity.x -= ballBody.velocity.x * decelEase;
+        ballBody.velocity.z -= ballBody.velocity.z * decelEase;
+        return;
     }
 
     // --- Input is active: smoothly adjust currentInput ---
@@ -478,6 +647,7 @@ function animate() {
     ballMesh.position.copy(ballBody.position);
     ballMesh.quaternion.copy(ballBody.quaternion);
 
+    updateAudio(dt);
     updateCamera();
     renderer.render(scene, camera);
 }
