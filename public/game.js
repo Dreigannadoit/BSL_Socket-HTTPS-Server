@@ -3,12 +3,11 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as CANNON from "cannon-es";
 
 const hud = document.getElementById("hud");
-
 const GLB_URL = "http://localhost:8081/maze_platform.glb";
 
 // ── Three.js scene ──
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x222233);
+scene.background = new THREE.Color(0xdfe6ea);
 
 const camera = new THREE.PerspectiveCamera(
     40,
@@ -24,11 +23,30 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+const hemi = new THREE.HemisphereLight(0xffffff, 0xaabbd0, 1.4); // strong, neutral-cool fill
 scene.add(hemi);
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-sun.position.set(5, 10, 5);
+// scene.fog = new THREE.Fog(0xdfe6ea, 8, 35);
+// scene.fog = new THREE.FogExp2(0xdfe6ea, 0.035);
+
+scene.fog = new THREE.FogExp2(0xdfe6ea, 0.06);
+
+// ── Ground mist plane: cheap, effective height-fog fake ──
+const mistGeo = new THREE.PlaneGeometry(200, 200);
+const mistMat = new THREE.MeshBasicMaterial({
+    color: 0xdfe6ea,
+    transparent: true,
+    opacity: 0.15,
+    depthWrite: false,
+});
+const mistPlane = new THREE.Mesh(mistGeo, mistMat);
+mistPlane.rotation.x = -Math.PI / 2;
+mistPlane.position.y = -1.5; // ★ set to just below your lowest visible pillar bottoms
+scene.add(mistPlane);
+
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.0); // no warm tint — keep it neutral/cool
+sun.position.set(4, 20, 4);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.near = 0.1;
@@ -37,7 +55,13 @@ sun.shadow.camera.left = -15;
 sun.shadow.camera.right = 15;
 sun.shadow.camera.top = 15;
 sun.shadow.camera.bottom = -15;
+sun.shadow.radius = 6;       // very soft-edged shadows — barely-there contact shadows
+sun.shadow.bias = -0.0004;
 scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0xffffff, 0.4);
+fill.position.set(-6, 4, -4);
+scene.add(fill);
 
 // ── Cannon-es physics world ──
 const world = new CANNON.World({
@@ -48,19 +72,30 @@ world.allowSleep = false;
 world.solver.iterations = 30;
 world.solver.tolerance = 0.00005;
 
-const groundMaterial = new CANNON.Material("ground");
+const floorMaterial = new CANNON.Material("floor");
+const wallMaterial = new CANNON.Material("wall");
 const ballMaterial = new CANNON.Material("ball");
 
-// Friction is set high enough for realistic rolling and wall interactions
-const contact = new CANNON.ContactMaterial(groundMaterial, ballMaterial, {
+// Wall bounce — stays the same
+const wallContact = new CANNON.ContactMaterial(wallMaterial, ballMaterial, {
     friction: 0.55,
-    restitution: 0.08,
+    restitution: 0.9,
     contactEquationStiffness: 1e8,
     contactEquationRelaxation: 3,
 });
-world.addContactMaterial(contact);
+world.addContactMaterial(wallContact);
+
+// Floor bounce — reduced
+const floorContact = new CANNON.ContactMaterial(floorMaterial, ballMaterial, {
+    friction: 0.55,
+    restitution: 0.4,
+    contactEquationStiffness: 1e8,
+    contactEquationRelaxation: 1,
+});
+world.addContactMaterial(floorContact);
+
 world.defaultContactMaterial.friction = 0.55;
-world.defaultContactMaterial.restitution = 0.08;
+world.defaultContactMaterial.restitution = 0.2;
 
 // ── Ball ──
 const BALL_RADIUS = 0.35;
@@ -111,8 +146,6 @@ const ballBody = new CANNON.Body({
     mass: 0.4,
     shape: new CANNON.Sphere(BALL_RADIUS),
     material: ballMaterial,
-    // Damping values give a natural, gradual stop when no input is given.
-    // They also work with the angular damping to maintain rolling coherence.
     linearDamping: 0.02,
     angularDamping: 0.02,
     ccdSpeedThreshold: 0.1,
@@ -120,6 +153,20 @@ const ballBody = new CANNON.Body({
 });
 
 world.addBody(ballBody);
+
+// ★ Bounce overlay system: smooth blending after wall impact
+let wallHitPending = false;      // set on collision, processed next frame
+let bounceVelocity = new CANNON.Vec3();
+let bounceTimer = 0;             // time remaining for bounce overlay
+const BOUNCE_DURATION = 0.3;     // seconds of smooth transition
+
+ballBody.addEventListener("collide", (event) => {
+    // Only respond to wall-like collisions (horizontal normal)
+    const normal = event.contact.ni;
+    if (Math.abs(normal.y) < 0.7) {
+        wallHitPending = true;
+    }
+});
 
 // ── Load the level ──
 const loader = new GLTFLoader();
@@ -156,6 +203,30 @@ loader.load(
                     child.castShadow = true;
                     child.receiveShadow = true;
                     child.visible = true;
+
+                    // Preserve original textures/maps, just upgrade the material properties
+                    const oldMat = child.material;
+
+                    child.material = new THREE.MeshPhysicalMaterial({
+                        map: oldMat.map || null,                   // ★ base color texture
+                        color: oldMat.map ? 0xffffff : (oldMat.color || 0x2288ee), // white so texture isn't tinted
+                        normalMap: oldMat.normalMap || null,
+                        normalScale: oldMat.normalScale || undefined,
+                        aoMap: oldMat.aoMap || null,
+                        aoMapIntensity: oldMat.aoMapIntensity ?? 1,
+                        emissive: oldMat.emissive || undefined,
+                        emissiveMap: oldMat.emissiveMap || null,
+                        emissiveIntensity: oldMat.emissiveIntensity ?? 1,
+                        roughness: 0.15,
+                        metalness: 0.1,
+                        clearcoat: 0.6,
+                        clearcoatRoughness: 0.2,
+                    });
+
+                    // aoMap requires a second UV set — copy it over if present
+                    if (oldMat.aoMap && child.geometry.attributes.uv2) {
+                        child.material.aoMap = oldMat.aoMap;
+                    }
                 }
             });
         } else {
@@ -189,7 +260,12 @@ function addTrimeshCollider(mesh) {
     }
 
     const shape = new CANNON.Trimesh(vertices, indices);
-    const body = new CANNON.Body({ mass: 0, material: groundMaterial });
+
+    // ★ pick material based on node name from your GLB hierarchy
+    const isFloor = /floor/i.test(mesh.name);
+    const bodyMaterial = isFloor ? floorMaterial : wallMaterial;
+
+    const body = new CANNON.Body({ mass: 0, material: bodyMaterial });
     body.addShape(shape);
     world.addBody(body);
 }
@@ -221,51 +297,146 @@ function setKey(code, value) {
     }
 }
 
-// ── Movement tuning ──
-const MAX_SPEED = 4.5;   // top horizontal speed in units/sec
-const ACCEL = 8;         // how fast the ball reaches target velocity while keys are held
-const DECEL_RATE = 1.2;  // ★ NEW: gentler deceleration when no keys are pressed — makes the coast-out last longer
+// ── Bounce suppression state ──
+let floorBounceCount = 0;
+let suppressUntil = 0;          // timestamp (ms) until which bounces are killed
+let lastBounceTime = 0;
+const BOUNCE_RESET_GAP = 0.6;   // seconds of no bounce = new bounce sequence
+const BOUNCE_LIMIT = 3;
+const SUPPRESS_DURATION = 0.5;  // seconds
 
+ballBody.addEventListener("collide", (event) => {
+    const normal = event.contact.ni;
+    const now = performance.now() / 1000;
+
+    if (Math.abs(normal.y) < 0.7) {
+        // wall collision — unchanged
+        wallHitPending = true;
+        return;
+    }
+
+    // floor collision
+    if (now < suppressUntil) {
+        // We're in the suppression window — kill the bounce outright
+        ballBody.velocity.y = 0;
+        return;
+    }
+
+    // Reset the counter if it's been a while since the last floor bounce
+    if (now - lastBounceTime > BOUNCE_RESET_GAP) {
+        floorBounceCount = 0;
+    }
+    lastBounceTime = now;
+    floorBounceCount++;
+
+    if (floorBounceCount >= BOUNCE_LIMIT) {
+        // This is the 3rd bounce — let it happen, then suppress afterward
+        suppressUntil = now + SUPPRESS_DURATION;
+        floorBounceCount = 0; // reset for the next sequence
+    }
+});
+
+// ── Ground detection ──
+const groundRay = new CANNON.Ray();
+let groundNormal = new CANNON.Vec3(0, 1, 0);
+let isGrounded = false;
+const GROUND_RAY_LENGTH = BALL_RADIUS + 0.15;
+
+function checkGround() {
+    const from = ballBody.position;
+    const to = new CANNON.Vec3(from.x, from.y - GROUND_RAY_LENGTH, from.z);
+
+    const result = new CANNON.RaycastResult();
+    world.raycastClosest(from, to, {
+        skipBackfaces: true,
+        collisionFilterMask: -1,
+    }, result);
+
+    if (result.hasHit) {
+        isGrounded = true;
+        groundNormal.copy(result.hitNormalWorld);
+    } else {
+        isGrounded = false;
+        groundNormal.set(0, 1, 0);
+    }
+}
+
+// ── Movement tuning ──
+const MAX_SPEED = 4.3;
+const ACCEL = 9;
+const DECEL_RATE = 1.2;
 const currentInput = { x: 0, z: 0 };
 
-/**
- * Reworked movement system: direct velocity control with real rolling.
- * - Input is smoothed, no instant jumps.
- * - When keys are released, we ease velocity to zero using DECEL_RATE
- *   (much lower than ACCEL), giving a gradual, natural stop.
- * - Angular velocity is always matched to linear velocity so the ball
- *   visibly rolls.
- */
 function applyRollInput(dt) {
+    checkGround();
+
+    // Process wall-hit bounce (unchanged)
+    if (wallHitPending) {
+        bounceVelocity.copy(ballBody.velocity);
+        bounceTimer = BOUNCE_DURATION;
+        wallHitPending = false;
+    }
+
     const targetX = (keys.right ? 1 : 0) + (keys.left ? -1 : 0);
     const targetZ = (keys.forward ? -1 : 0) + (keys.back ? 1 : 0);
     const noInput = targetX === 0 && targetZ === 0;
 
     if (noInput) {
+        // ★ No input → do NOT force velocity to zero.
+        // Let physics (gravity + friction) move the ball naturally.
+        // Only reset the smoothed input values for next time.
         currentInput.x = 0;
         currentInput.z = 0;
-    } else {
-        const inputEase = 1 - Math.exp(-ACCEL * dt);
-        currentInput.x += (targetX - currentInput.x) * inputEase;
-        currentInput.z += (targetZ - currentInput.z) * inputEase;
+        return;   // ← skip all velocity manipulation
     }
 
-    const targetVelX = currentInput.x * MAX_SPEED;
-    const targetVelZ = currentInput.z * MAX_SPEED;
+    // --- Input is active: smoothly adjust currentInput ---
+    const inputEase = 1 - Math.exp(-ACCEL * dt);
+    currentInput.x += (targetX - currentInput.x) * inputEase;
+    currentInput.z += (targetZ - currentInput.z) * inputEase;
 
-    // Use a much lower easing rate when coasting to a stop
-    const velEase = 1 - Math.exp(-(noInput ? DECEL_RATE : ACCEL) * dt);
+    // Project input direction onto the slope plane
+    let moveDir = new CANNON.Vec3(currentInput.x, 0, currentInput.z);
+    const dot = moveDir.dot(groundNormal);
+    moveDir = new CANNON.Vec3(
+        moveDir.x - groundNormal.x * dot,
+        moveDir.y - groundNormal.y * dot,
+        moveDir.z - groundNormal.z * dot
+    );
 
+    const inputMag = Math.hypot(currentInput.x, currentInput.z);
+    if (moveDir.length() > 0.0001 && inputMag > 0.0001) {
+        moveDir.normalize();
+        moveDir.scale(inputMag, moveDir);
+    }
+
+    // Slope boost (helps going uphill)
+    const slopeAngle = Math.acos(THREE.MathUtils.clamp(groundNormal.y, -1, 1));
+    const upSlopeBoost = 1 + slopeAngle * 0.6;
+
+    let targetVelX = moveDir.x * MAX_SPEED * upSlopeBoost;
+    let targetVelZ = moveDir.z * MAX_SPEED * upSlopeBoost;
+    let targetVelY = moveDir.y * MAX_SPEED * upSlopeBoost;
+
+    // Blend bounce overlay (unchanged)
+    if (bounceTimer > 0) {
+        bounceTimer -= dt;
+        const t = 1 - Math.max(bounceTimer / BOUNCE_DURATION, 0);
+        const blend = t * t * (3 - 2 * t);
+        targetVelX = bounceVelocity.x * (1 - blend) + targetVelX * blend;
+        targetVelZ = bounceVelocity.z * (1 - blend) + targetVelZ * blend;
+    }
+
+    const velEase = 1 - Math.exp(-ACCEL * dt);
     ballBody.velocity.x += (targetVelX - ballBody.velocity.x) * velEase;
     ballBody.velocity.z += (targetVelZ - ballBody.velocity.z) * velEase;
 
-    // Synchronize angular velocity for rolling without slipping
-    const invRadius = 1 / BALL_RADIUS;
-    ballBody.angularVelocity.set(
-        ballBody.velocity.z * invRadius,
-        0,
-        -ballBody.velocity.x * invRadius
-    );
+    // Only control vertical velocity while grounded on a slope and not in air
+    if (isGrounded && bounceTimer <= 0) {
+        ballBody.velocity.y += (targetVelY - ballBody.velocity.y) * velEase;
+    }
+
+    // Remove the angular velocity sync here – we'll do it after physics step
 }
 
 // ── Camera follow ──
@@ -295,6 +466,14 @@ function animate() {
 
     applyRollInput(dt);
     world.step(1 / 60, dt, 10);
+
+    // Sync angular velocity after physics integration
+    const invRadius = 1 / BALL_RADIUS;
+    ballBody.angularVelocity.set(
+        ballBody.velocity.z * invRadius,
+        0,
+        -ballBody.velocity.x * invRadius
+    );
 
     ballMesh.position.copy(ballBody.position);
     ballMesh.quaternion.copy(ballBody.quaternion);
