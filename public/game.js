@@ -23,7 +23,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-const hemi = new THREE.HemisphereLight(0xffffff, 0xaabbd0, 1.4); // strong, neutral-cool fill
+const hemi = new THREE.HemisphereLight(0xffffff, 0xaabbd0, 0.8); // ★ raised back up a bit for general scene visibility now that shadows track the player correctly
 scene.add(hemi);
 
 // scene.fog = new THREE.Fog(0xdfe6ea, 8, 35);
@@ -45,21 +45,30 @@ mistPlane.position.y = -1.5; // ★ set to just below your lowest visible pillar
 scene.add(mistPlane);
 
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.0); // no warm tint — keep it neutral/cool
-sun.position.set(4, 20, 4);
+const sun = new THREE.DirectionalLight(0xffffff, 2.4); // ★ boosted further — much brighter key light
+sun.position.set(16, 8, 4); // ★ lower elevation, strongly off to one side — reads as a diagonal sun, not overhead
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.near = 0.1;
-sun.shadow.camera.far = 50;
+sun.shadow.camera.far = 90;
 sun.shadow.camera.left = -15;
 sun.shadow.camera.right = 15;
 sun.shadow.camera.top = 15;
 sun.shadow.camera.bottom = -15;
-sun.shadow.radius = 6;       // very soft-edged shadows — barely-there contact shadows
-sun.shadow.bias = -0.0004;
+sun.shadow.radius =3.5;     // ★ tightened further for a crisper, more defined shadow edge
+sun.shadow.bias = -0.0006;   // ★ slightly increased to avoid peter-panning at the new grazing angle
 scene.add(sun);
 
-const fill = new THREE.DirectionalLight(0xffffff, 0.4);
+// ★ The shadow camera frustum is fixed around sun.target's position (defaults
+// to world origin). Without moving the target, shadows only render near
+// spawn — everywhere else on the map falls outside the frustum and looks
+// flat. Give the sun an explicit target and re-anchor both it and the sun
+// itself to the ball every frame (see updateSunFollow below) so the shadow
+// box travels with the player across the whole map.
+const sunOffset = new THREE.Vector3(16, 8, 4);
+scene.add(sun.target);
+
+const fill = new THREE.DirectionalLight(0xffffff, 0.3); // ★ restored slightly alongside hemi
 fill.position.set(-6, 4, -4);
 scene.add(fill);
 
@@ -619,6 +628,13 @@ function updateCamera() {
     camera.lookAt(cameraTarget);
 }
 
+// ── Sun follow (keeps the shadow frustum centered on the player) ──
+function updateSunFollow() {
+    sun.position.copy(ballMesh.position).add(sunOffset);
+    sun.target.position.copy(ballMesh.position);
+    sun.target.updateMatrixWorld();
+}
+
 // ── Resize ──
 window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -648,6 +664,7 @@ function animate() {
     ballMesh.quaternion.copy(ballBody.quaternion);
 
     updateAudio(dt);
+    updateSunFollow();
     updateCamera();
     renderer.render(scene, camera);
 }
