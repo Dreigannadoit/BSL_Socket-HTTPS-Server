@@ -330,12 +330,55 @@ let wallHitPending = false;      // set on collision, processed next frame
 let bounceVelocity = new CANNON.Vec3();
 let bounceTimer = 0;             // time remaining for bounce overlay
 const BOUNCE_DURATION = 0.3;     // seconds of smooth transition
+const FLOOR_IMPACT_THRESHOLD = 0.2; // m/s of impact along the normal — below this,
+                                     // it's a seam crossing between flush floor
+                                     // pieces, not an actual fall/landing
 
 ballBody.addEventListener("collide", (event) => {
-    // Only respond to wall-like collisions (horizontal normal)
     const normal = event.contact.ni;
+    const now = performance.now() / 1000;
+
     if (Math.abs(normal.y) < 0.7) {
+        // wall collision — unchanged, always plays
         wallHitPending = true;
+        playBounceSound();
+        return;
+    }
+
+    // floor collision — only treat this as a real "landing" if the ball
+    // was airborne (per our own raycast ground check) going into this
+    // physics step. isGrounded reflects the pre-step state here, since
+    // checkGround() always runs before world.step() each frame. Rolling
+    // across a seam between two adjacent floor meshes keeps isGrounded
+    // true the whole time, so those never reach the sound below —
+    // regardless of any small real impact velocity the seam produces.
+    if (isGrounded) {
+        return;
+    }
+
+    // Secondary sanity filter: guards against the rare case where the
+    // raycast briefly misses at a beveled seam edge even though the ball
+    // never really left the surface.
+    const impactVelocity = Math.abs(event.contact.getImpactVelocityAlongNormal());
+    if (impactVelocity < FLOOR_IMPACT_THRESHOLD) {
+        return;
+    }
+
+    if (now < suppressUntil) {
+        ballBody.velocity.y = 0;
+        return;
+    }
+
+    if (now - lastBounceTime > BOUNCE_RESET_GAP) {
+        floorBounceCount = 0;
+    }
+    lastBounceTime = now;
+    floorBounceCount++;
+    playBounceSound(0.8);
+
+    if (floorBounceCount >= BOUNCE_LIMIT) {
+        suppressUntil = now + SUPPRESS_DURATION;
+        floorBounceCount = 0;
     }
 });
 
@@ -437,6 +480,36 @@ loader.load(
         hud.textContent = "Failed to load maze_platform.glb — check console.";
     }
 );
+
+// ── Acceleration curve tuning ──
+// Piecewise speed-fraction curve driven by how long input has been held,
+// not by a generic ease. Reaches 100% of MAX_SPEED at exactly 900ms.
+function getAccelFraction(holdMs) {
+    if (holdMs <= 500) {
+        return THREE.MathUtils.lerp(0, 0.50, holdMs / 500);
+    } else if (holdMs <= 700) {
+        const t = (holdMs - 500) / (700 - 500);
+        return THREE.MathUtils.lerp(0.51, 0.70, t);
+    } else if (holdMs <= 900) {
+        const t = (holdMs - 700) / (900 - 700);
+        return THREE.MathUtils.lerp(0.71, 1.0, t);
+    }
+    return 1.0;
+}
+
+// ── Reversal skid tuning ──
+const REVERSAL_SKID_DURATION = 0.35; // seconds the ball keeps sliding the old
+                                      // way before the new direction fully takes over
+const REVERSAL_DOT_THRESHOLD = -0.3; // how opposite new input must be to the
+                                      // previous input to count as a "sudden reversal"
+                                      // (-1 = perfectly opposite, 0 = perpendicular)
+const REVERSAL_MIN_SPEED = 1.0;      // m/s — below this, don't bother skidding,
+                                      // just let the normal accel curve handle it
+
+let reversalTimer = 0;
+let reversalVelocity = new CANNON.Vec3();
+let prevTargetX = 0;
+let prevTargetZ = 0;
 
 // ── Respawn system ──
 // lastSafePosition is stamped every frame the ball is grounded (see
@@ -687,10 +760,14 @@ function checkGround() {
 }
 
 // ── Movement tuning ──
-const MAX_SPEED = 4.6;
+const MAX_SPEED = 5.3;
 const ACCEL = 15;
 const DECEL_RATE = 1.5;
+const TURN_SMOOTHING = 4.5; // ★ lower = smoother/slower direction changes while moving.
+                            // Decoupled from ACCEL so turning feels gradual
+                            // independent of the speed ramp-up curve.
 const currentInput = { x: 0, z: 0 };
+let inputHoldTime = 0; 
 
 // ── Slope sliding tuning ──
 const SLIDE_MIN_SLOPE = 0.08;   // radians — below this, treat as "flat" and just decelerate
@@ -699,7 +776,6 @@ const SLIDE_MAX_SPEED = MAX_SPEED; // cap for how fast sliding can get (tie to M
 function applyRollInput(dt) {
     checkGround();
 
-    // Process wall-hit bounce (unchanged)
     if (wallHitPending) {
         bounceVelocity.copy(ballBody.velocity);
         bounceTimer = BOUNCE_DURATION;
@@ -713,16 +789,15 @@ function applyRollInput(dt) {
     if (noInput) {
         currentInput.x = 0;
         currentInput.z = 0;
+        inputHoldTime = 0;
+        prevTargetX = 0; // ★ clear so releasing then re-pressing the same
+        prevTargetZ = 0; //   direction later isn't mistaken for a reversal
+        reversalTimer = 0; // ★ cancel any in-progress skid once input is let go
 
         const slopeAngle = Math.acos(THREE.MathUtils.clamp(groundNormal.y, -1, 1));
 
         if (isGrounded && slopeAngle > SLIDE_MIN_SLOPE) {
-            // ★ Real acceleration, not ease-to-target. Project gravity's
-            // magnitude onto the slope plane to get a downhill accel
-            // vector, then integrate it into velocity every frame like
-            // actual gravity would (v += a*dt). This keeps building speed
-            // over time instead of snapping to a plateau.
-            const gravityMag = Math.abs(world.gravity.y); // 9.82
+            const gravityMag = Math.abs(world.gravity.y);
             const gravityVec = new CANNON.Vec3(0, -gravityMag, 0);
             const gDot = gravityVec.dot(groundNormal);
             const downhillAccel = new CANNON.Vec3(
@@ -731,12 +806,9 @@ function applyRollInput(dt) {
                 gravityVec.z - groundNormal.z * gDot
             );
 
-            // Only the horizontal component drives horizontal sliding —
-            // vertical is already handled by gravity/physics itself.
             ballBody.velocity.x += downhillAccel.x * dt;
             ballBody.velocity.z += downhillAccel.z * dt;
 
-            // Cap the horizontal slide speed so it doesn't run away forever
             const horizSpeed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
             if (horizSpeed > SLIDE_MAX_SPEED) {
                 const scale = SLIDE_MAX_SPEED / horizSpeed;
@@ -746,19 +818,38 @@ function applyRollInput(dt) {
             return;
         }
 
-        // Flat ground (or airborne): ease horizontal velocity toward zero.
         const decelEase = 1 - Math.exp(-DECEL_RATE * dt);
         ballBody.velocity.x -= ballBody.velocity.x * decelEase;
         ballBody.velocity.z -= ballBody.velocity.z * decelEase;
         return;
     }
 
-    // --- Input is active: smoothly adjust currentInput ---
-    const inputEase = 1 - Math.exp(-ACCEL * dt);
+    // ★ Reversal detection — compare this frame's input direction against
+    // last frame's. A sudden flip (e.g. forward → back) triggers a skid:
+    // capture current velocity as the "slide" momentum and restart the
+    // acceleration curve, so the ball eases into the new direction instead
+    // of snapping to full speed the opposite way.
+    const tMag = Math.hypot(targetX, targetZ);
+    const prevMag = Math.hypot(prevTargetX, prevTargetZ);
+    if (tMag > 0 && prevMag > 0 && reversalTimer <= 0) {
+        const dot = (targetX / tMag) * (prevTargetX / prevMag) +
+                    (targetZ / tMag) * (prevTargetZ / prevMag);
+        const currentSpeed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
+
+        if (dot < REVERSAL_DOT_THRESHOLD && currentSpeed > REVERSAL_MIN_SPEED) {
+            reversalVelocity.set(ballBody.velocity.x, 0, ballBody.velocity.z);
+            reversalTimer = REVERSAL_SKID_DURATION;
+            inputHoldTime = 0; // restart the 0/500/700/900ms accel curve from zero
+        }
+    }
+
+    // --- Input is active ---
+    inputHoldTime += dt * 1000;
+
+    const inputEase = 1 - Math.exp(-TURN_SMOOTHING * dt);
     currentInput.x += (targetX - currentInput.x) * inputEase;
     currentInput.z += (targetZ - currentInput.z) * inputEase;
 
-    // Project input direction onto the slope plane
     let moveDir = new CANNON.Vec3(currentInput.x, 0, currentInput.z);
     const dot = moveDir.dot(groundNormal);
     moveDir = new CANNON.Vec3(
@@ -773,15 +864,15 @@ function applyRollInput(dt) {
         moveDir.scale(inputMag, moveDir);
     }
 
-    // Slope boost (helps going uphill)
     const slopeAngle = Math.acos(THREE.MathUtils.clamp(groundNormal.y, -1, 1));
     const upSlopeBoost = 1 + slopeAngle * 0.6;
 
-    let targetVelX = moveDir.x * MAX_SPEED * upSlopeBoost;
-    let targetVelZ = moveDir.z * MAX_SPEED * upSlopeBoost;
-    let targetVelY = moveDir.y * MAX_SPEED * upSlopeBoost;
+    const speedFraction = getAccelFraction(inputHoldTime);
 
-    // Blend bounce overlay (unchanged)
+    let targetVelX = moveDir.x * MAX_SPEED * upSlopeBoost * speedFraction;
+    let targetVelZ = moveDir.z * MAX_SPEED * upSlopeBoost * speedFraction;
+    let targetVelY = moveDir.y * MAX_SPEED * upSlopeBoost * speedFraction;
+
     if (bounceTimer > 0) {
         bounceTimer -= dt;
         const t = 1 - Math.max(bounceTimer / BOUNCE_DURATION, 0);
@@ -790,16 +881,29 @@ function applyRollInput(dt) {
         targetVelZ = bounceVelocity.z * (1 - blend) + targetVelZ * blend;
     }
 
-    const velEase = 1 - Math.exp(-ACCEL * dt);
-    ballBody.velocity.x += (targetVelX - ballBody.velocity.x) * velEase;
-    ballBody.velocity.z += (targetVelZ - ballBody.velocity.z) * velEase;
-
-    // Only control vertical velocity while grounded on a slope and not in air
-    if (isGrounded && bounceTimer <= 0) {
-        ballBody.velocity.y += (targetVelY - ballBody.velocity.y) * velEase;
+    // ★ Reversal skid blend — slides from the captured old-direction
+    // velocity toward the (now-restarting) new-direction target over
+    // REVERSAL_SKID_DURATION. Early on this favors the old momentum, so the
+    // ball keeps drifting the original way briefly; as it fades toward the
+    // new target (which itself is ramping up from 0 via speedFraction), the
+    // ball settles into accelerating the new direction.
+    if (reversalTimer > 0) {
+        reversalTimer -= dt;
+        const rt = 1 - Math.max(reversalTimer / REVERSAL_SKID_DURATION, 0);
+        const rBlend = rt * rt * (3 - 2 * rt);
+        targetVelX = reversalVelocity.x * (1 - rBlend) + targetVelX * rBlend;
+        targetVelZ = reversalVelocity.z * (1 - rBlend) + targetVelZ * rBlend;
     }
 
-    // Remove the angular velocity sync here – we'll do it after physics step
+    ballBody.velocity.x = targetVelX;
+    ballBody.velocity.z = targetVelZ;
+
+    if (isGrounded && bounceTimer <= 0) {
+        ballBody.velocity.y = targetVelY;
+    }
+
+    prevTargetX = targetX; // ★ remember this frame's input direction for
+    prevTargetZ = targetZ; //   next frame's reversal check
 }
 
 // ── Camera follow ──
