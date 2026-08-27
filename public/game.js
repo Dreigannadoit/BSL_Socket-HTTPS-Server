@@ -415,6 +415,7 @@ loader.load(
         // Start the checkpoint at spawn itself, so falling before ever
         // touching ground still sends the player somewhere sane.
         lastSafePosition.copy(spawnPos);
+        resetGroundedHistory(spawnPos);
 
         // Derive the "fell off the world" threshold from the level's own
         // geometry instead of a hardcoded number, so it still works if the
@@ -487,17 +488,19 @@ loader.load(
 // Piecewise speed-fraction curve driven by how long input has been held,
 // not by a generic ease. Reaches 100% of MAX_SPEED at exactly 900ms.
 function getAccelFraction(holdMs) {
-    if (holdMs <= 500) {
-        return THREE.MathUtils.lerp(0, 0.30, holdMs / 500);
-    } else if (holdMs <= 700) {
+    if (holdMs <= 800) {
+        return THREE.MathUtils.lerp(0, 0.50, holdMs / 500);
+    } else if (holdMs <= 1000) {
         const t = (holdMs - 500) / (700 - 500);
-        return THREE.MathUtils.lerp(0.31, 0.70, t);
-    } else if (holdMs <= 900) {
+        return THREE.MathUtils.lerp(0.51, 0.70, t);
+    } else if (holdMs <= 1100) {
         const t = (holdMs - 700) / (900 - 700);
         return THREE.MathUtils.lerp(0.71, 1.0, t);
     }
     return 1.0;
 }
+
+
 
 // ── Reversal skid tuning ──
 const REVERSAL_SKID_DURATION = 0.35; // seconds the ball keeps sliding the old
@@ -514,15 +517,34 @@ let prevTargetX = 0;
 let prevTargetZ = 0;
 
 // ── Respawn system ──
-// lastSafePosition is stamped every frame the ball is grounded (see
-// applyRollInput → checkGround, which already runs every frame). Because
-// isGrounded flips false the instant the ball leaves a platform, whatever
-// got saved right before that is effectively the edge the ball fell from —
-// exactly the "respawn where I fell off" behavior asked for, with no extra
-// edge-detection logic needed.
+// lastSafePosition is where the ball respawns. Simply stamping it every
+// grounded frame put it right on the edge the ball fell from — one wrong
+// move and the ball just rolls straight back off. Instead we keep a short
+// rolling buffer of grounded positions/timestamps and anchor respawn to
+// where the ball was RESPAWN_ANCHOR_DELAY seconds before "now", not the
+// literal last inch of ground it touched. Since that's a time delay (not a
+// fixed distance), it scales naturally with how fast the ball was
+// rolling: a fast run off a ledge lands you further back than a slow creep
+// off the same edge.
 const lastSafePosition = new THREE.Vector3();
 const FALL_MARGIN = 5; // world units below the level's lowest collision mesh before we call it "fell off"
 let fallThresholdY = -Infinity; // set once the level geometry loads; -Infinity until then so nothing triggers early
+
+const RESPAWN_ANCHOR_DELAY = 0.4; // seconds "behind" the ball's live grounded position
+const groundedHistory = []; // { t, x, y, z } samples while grounded, oldest first
+
+// (Re)seed the history buffer with a single sample at the given position,
+// used both on initial spawn and after every respawn so stale pre-fall
+// samples never leak into the next fall's anchor calculation.
+function resetGroundedHistory(position) {
+    groundedHistory.length = 0;
+    groundedHistory.push({
+        t: performance.now() / 1000,
+        x: position.x,
+        y: position.y,
+        z: position.z,
+    });
+}
 
 // ── Fall transition (fade to black) ──
 // A second, purely visual trigger sits FADE_TRIGGER_MARGIN meters above the
@@ -532,7 +554,7 @@ let fallThresholdY = -Infinity; // set once the level geometry loads; -Infinity 
 // the player back at their checkpoint.
 const FADE_TRIGGER_MARGIN = 30; // meters above fallThresholdY
 const FADE_OUT_DURATION = 0.6;  // seconds to go from clear -> black
-const FADE_IN_DURATION = 0.2;   // seconds to go from black -> clear after respawn
+const FADE_IN_DURATION = 0.6;   // seconds to go from black -> clear after respawn
 let fadeTriggerY = -Infinity;   // set once fallThresholdY is known (see loader.load below)
 let fadeState = "idle";         // "idle" | "fading-out" | "black" | "fading-in"
 let fadeOpacity = 0;
@@ -566,9 +588,27 @@ function updateFade(dt) {
 }
 
 function updateRespawnAnchor() {
-    if (isGrounded) {
-        lastSafePosition.copy(ballBody.position);
+    if (!isGrounded) return;
+
+    const now = performance.now() / 1000;
+    groundedHistory.push({
+        t: now,
+        x: ballBody.position.x,
+        y: ballBody.position.y,
+        z: ballBody.position.z,
+    });
+
+    // Trim from the front, but only while the SECOND-oldest sample is still
+    // old enough to serve as the delayed anchor — that way groundedHistory[0]
+    // always converges on "the freshest sample that's still >= DELAY seconds
+    // old" instead of drifting all the way up to the live position.
+    const target = now - RESPAWN_ANCHOR_DELAY;
+    while (groundedHistory.length > 1 && groundedHistory[1].t <= target) {
+        groundedHistory.shift();
     }
+
+    const anchor = groundedHistory[0];
+    lastSafePosition.set(anchor.x, anchor.y, anchor.z);
 }
 
 function checkRespawn() {
@@ -586,6 +626,7 @@ function respawnBall() {
     floorBounceCount = 0;
     suppressUntil = 0;
     bounceTimer = 0;
+    resetGroundedHistory(lastSafePosition);
     playHotspotSound(0.6); // reuse the existing (previously unwired) cue as a respawn sound
 
     // The fade-to-black should already be finished by the time we get here
@@ -810,7 +851,7 @@ function checkGround() {
 }
 
 // ── Movement tuning ──
-const MAX_SPEED = 5.3;
+const MAX_SPEED = 6.3;
 const ACCEL = 15;
 const DECEL_RATE = 1.5;
 const TURN_SMOOTHING = 4.5; // ★ lower = smoother/slower direction changes while moving.
