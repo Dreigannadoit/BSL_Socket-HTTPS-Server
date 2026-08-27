@@ -3,7 +3,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as CANNON from "cannon-es";
 
 const hud = document.getElementById("hud");
-const GLB_URL = "http://localhost:8081/maze_platform_2.glb";
+const GLB_URL = "http://localhost:8081/assets/maze_platform_high.glb";
 
 // ── Three.js scene ──
 const scene = new THREE.Scene();
@@ -55,7 +55,7 @@ sun.shadow.camera.left = -15;
 sun.shadow.camera.right = 15;
 sun.shadow.camera.top = 15;
 sun.shadow.camera.bottom = -15;
-sun.shadow.radius =6.5;     // ★ tightened further for a crisper, more defined shadow edge
+sun.shadow.radius = 6.5;     // ★ tightened further for a crisper, more defined shadow edge
 sun.shadow.bias = -0.0006;   // ★ slightly increased to avoid peter-panning at the new grazing angle
 scene.add(sun);
 
@@ -348,7 +348,7 @@ loader.load(
         const root = gltf.scene;
         root.scale.multiplyScalar(1.4);
         root.updateMatrixWorld(true);
-        root.rotateY(Math.PI / 2); 
+        root.rotateY(Math.PI / 2);
         scene.add(root);
 
         const spawnNode = root.getObjectByName("Spawn");
@@ -692,6 +692,10 @@ const ACCEL = 15;
 const DECEL_RATE = 1.5;
 const currentInput = { x: 0, z: 0 };
 
+// ── Slope sliding tuning ──
+const SLIDE_MIN_SLOPE = 0.08;   // radians — below this, treat as "flat" and just decelerate
+const SLIDE_MAX_SPEED = MAX_SPEED; // cap for how fast sliding can get (tie to MAX_SPEED, or give it its own ceiling)
+
 function applyRollInput(dt) {
     checkGround();
 
@@ -707,13 +711,42 @@ function applyRollInput(dt) {
     const noInput = targetX === 0 && targetZ === 0;
 
     if (noInput) {
-        // ★ No input → ease horizontal velocity toward zero (DECEL_RATE)
-        // instead of relying purely on friction/damping, which coasted
-        // for far too long. Vertical velocity is left untouched so
-        // falling/landing still behaves naturally.
         currentInput.x = 0;
         currentInput.z = 0;
 
+        const slopeAngle = Math.acos(THREE.MathUtils.clamp(groundNormal.y, -1, 1));
+
+        if (isGrounded && slopeAngle > SLIDE_MIN_SLOPE) {
+            // ★ Real acceleration, not ease-to-target. Project gravity's
+            // magnitude onto the slope plane to get a downhill accel
+            // vector, then integrate it into velocity every frame like
+            // actual gravity would (v += a*dt). This keeps building speed
+            // over time instead of snapping to a plateau.
+            const gravityMag = Math.abs(world.gravity.y); // 9.82
+            const gravityVec = new CANNON.Vec3(0, -gravityMag, 0);
+            const gDot = gravityVec.dot(groundNormal);
+            const downhillAccel = new CANNON.Vec3(
+                gravityVec.x - groundNormal.x * gDot,
+                gravityVec.y - groundNormal.y * gDot,
+                gravityVec.z - groundNormal.z * gDot
+            );
+
+            // Only the horizontal component drives horizontal sliding —
+            // vertical is already handled by gravity/physics itself.
+            ballBody.velocity.x += downhillAccel.x * dt;
+            ballBody.velocity.z += downhillAccel.z * dt;
+
+            // Cap the horizontal slide speed so it doesn't run away forever
+            const horizSpeed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
+            if (horizSpeed > SLIDE_MAX_SPEED) {
+                const scale = SLIDE_MAX_SPEED / horizSpeed;
+                ballBody.velocity.x *= scale;
+                ballBody.velocity.z *= scale;
+            }
+            return;
+        }
+
+        // Flat ground (or airborne): ease horizontal velocity toward zero.
         const decelEase = 1 - Math.exp(-DECEL_RATE * dt);
         ballBody.velocity.x -= ballBody.velocity.x * decelEase;
         ballBody.velocity.z -= ballBody.velocity.z * decelEase;
