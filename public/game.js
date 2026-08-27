@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as CANNON from "cannon-es";
 
 const hud = document.getElementById("hud");
+const fadeOverlay = document.getElementById("fade-overlay");
 const GLB_URL = "http://localhost:8081/assets/maze_platform_high.glb";
 
 // ── Three.js scene ──
@@ -425,6 +426,7 @@ loader.load(
         } else {
             fallThresholdY = spawnPos.y - FALL_MARGIN;
         }
+        fadeTriggerY = fallThresholdY + FADE_TRIGGER_MARGIN;
 
         let colliderCount = 0;
         if (collisionRoot) {
@@ -486,10 +488,10 @@ loader.load(
 // not by a generic ease. Reaches 100% of MAX_SPEED at exactly 900ms.
 function getAccelFraction(holdMs) {
     if (holdMs <= 500) {
-        return THREE.MathUtils.lerp(0, 0.50, holdMs / 500);
+        return THREE.MathUtils.lerp(0, 0.30, holdMs / 500);
     } else if (holdMs <= 700) {
         const t = (holdMs - 500) / (700 - 500);
-        return THREE.MathUtils.lerp(0.51, 0.70, t);
+        return THREE.MathUtils.lerp(0.31, 0.70, t);
     } else if (holdMs <= 900) {
         const t = (holdMs - 700) / (900 - 700);
         return THREE.MathUtils.lerp(0.71, 1.0, t);
@@ -500,9 +502,9 @@ function getAccelFraction(holdMs) {
 // ── Reversal skid tuning ──
 const REVERSAL_SKID_DURATION = 0.35; // seconds the ball keeps sliding the old
                                       // way before the new direction fully takes over
-const REVERSAL_DOT_THRESHOLD = -0.3; // how opposite new input must be to the
-                                      // previous input to count as a "sudden reversal"
-                                      // (-1 = perfectly opposite, 0 = perpendicular)
+const REVERSAL_DOT_THRESHOLD = -0.3; // how opposite the new input must be to the
+                                      // ball's CURRENT VELOCITY direction to count
+                                      // as a "sudden reversal" (-1 = dead opposite)
 const REVERSAL_MIN_SPEED = 1.0;      // m/s — below this, don't bother skidding,
                                       // just let the normal accel curve handle it
 
@@ -521,6 +523,47 @@ let prevTargetZ = 0;
 const lastSafePosition = new THREE.Vector3();
 const FALL_MARGIN = 5; // world units below the level's lowest collision mesh before we call it "fell off"
 let fallThresholdY = -Infinity; // set once the level geometry loads; -Infinity until then so nothing triggers early
+
+// ── Fall transition (fade to black) ──
+// A second, purely visual trigger sits FADE_TRIGGER_MARGIN meters above the
+// actual respawn trigger (fallThresholdY). Crossing it starts a fade to
+// black; by the time the ball actually reaches fallThresholdY and respawns,
+// the screen should already be fully black, then fades back in to reveal
+// the player back at their checkpoint.
+const FADE_TRIGGER_MARGIN = 30; // meters above fallThresholdY
+const FADE_OUT_DURATION = 0.6;  // seconds to go from clear -> black
+const FADE_IN_DURATION = 0.2;   // seconds to go from black -> clear after respawn
+let fadeTriggerY = -Infinity;   // set once fallThresholdY is known (see loader.load below)
+let fadeState = "idle";         // "idle" | "fading-out" | "black" | "fading-in"
+let fadeOpacity = 0;
+
+function updateFade(dt) {
+    switch (fadeState) {
+        case "idle":
+            // Crossing the upper trigger (falling past it) kicks off the fade.
+            if (ballBody.position.y < fadeTriggerY) {
+                fadeState = "fading-out";
+            }
+            break;
+        case "fading-out":
+            fadeOpacity = Math.min(1, fadeOpacity + dt / FADE_OUT_DURATION);
+            if (fadeOpacity >= 1) {
+                fadeOpacity = 1;
+                fadeState = "black"; // hold at full black until respawnBall() fires
+            }
+            break;
+        case "black":
+            break;
+        case "fading-in":
+            fadeOpacity = Math.max(0, fadeOpacity - dt / FADE_IN_DURATION);
+            if (fadeOpacity <= 0) {
+                fadeOpacity = 0;
+                fadeState = "idle";
+            }
+            break;
+    }
+    fadeOverlay.style.opacity = fadeOpacity;
+}
 
 function updateRespawnAnchor() {
     if (isGrounded) {
@@ -544,6 +587,13 @@ function respawnBall() {
     suppressUntil = 0;
     bounceTimer = 0;
     playHotspotSound(0.6); // reuse the existing (previously unwired) cue as a respawn sound
+
+    // The fade-to-black should already be finished by the time we get here
+    // (it started FADE_TRIGGER_MARGIN meters higher up) — snap to fully
+    // black as a safety net in case the fall was too short/fast for that,
+    // then begin fading back into the main scene at the new position.
+    fadeOpacity = 1;
+    fadeState = "fading-in";
 }
 
 function addTrimeshCollider(mesh) {
@@ -824,25 +874,30 @@ function applyRollInput(dt) {
         return;
     }
 
-    // ★ Reversal detection — compare this frame's input direction against
-    // last frame's. A sudden flip (e.g. forward → back) triggers a skid:
-    // capture current velocity as the "slide" momentum and restart the
-    // acceleration curve, so the ball eases into the new direction instead
-    // of snapping to full speed the opposite way.
-    const tMag = Math.hypot(targetX, targetZ);
-    const prevMag = Math.hypot(prevTargetX, prevTargetZ);
-    if (tMag > 0 && prevMag > 0 && reversalTimer <= 0) {
-        const dot = (targetX / tMag) * (prevTargetX / prevMag) +
-                    (targetZ / tMag) * (prevTargetZ / prevMag);
+    // ★ Reversal detection — compare the new input direction against the
+    // ball's ACTUAL CURRENT VELOCITY direction (not last frame's raw key
+    // state). This is robust to any keyup/keydown gap frames in between,
+    // since it only cares about physical momentum vs. the new command.
+    if (reversalTimer <= 0) {
         const currentSpeed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
 
-        if (dot < REVERSAL_DOT_THRESHOLD && currentSpeed > REVERSAL_MIN_SPEED) {
-            reversalVelocity.set(ballBody.velocity.x, 0, ballBody.velocity.z);
-            reversalTimer = REVERSAL_SKID_DURATION;
-            inputHoldTime = 0; // restart the 0/500/700/900ms accel curve from zero
+        if (currentSpeed > REVERSAL_MIN_SPEED) {
+            const velDirX = ballBody.velocity.x / currentSpeed;
+            const velDirZ = ballBody.velocity.z / currentSpeed;
+
+            const tMag = Math.hypot(targetX, targetZ);
+            const inDirX = targetX / tMag;
+            const inDirZ = targetZ / tMag;
+
+            const dot = velDirX * inDirX + velDirZ * inDirZ;
+
+            if (dot < REVERSAL_DOT_THRESHOLD) {
+                reversalVelocity.set(ballBody.velocity.x, 0, ballBody.velocity.z);
+                reversalTimer = REVERSAL_SKID_DURATION;
+                inputHoldTime = 0; // restart the 0/500/700/900ms accel curve from zero
+            }
         }
     }
-
     // --- Input is active ---
     inputHoldTime += dt * 1000;
 
@@ -951,6 +1006,7 @@ function animate() {
 
     updateRespawnAnchor();
     checkRespawn();
+    updateFade(dt);
 
     ballMesh.position.copy(ballBody.position);
     ballMesh.quaternion.copy(ballBody.quaternion);

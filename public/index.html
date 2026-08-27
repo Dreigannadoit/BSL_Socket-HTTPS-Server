@@ -12,10 +12,18 @@
     background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px;
     pointer-events: none; white-space: pre-line;
   }
+  /* Fullscreen fade-to-black transition, driven every frame from game.js
+     (opacity is set directly rather than via CSS transitions so it can be
+     synced to the actual fall/respawn timing). */
+  #fade-overlay {
+    position: fixed; inset: 0; background: #000;
+    opacity: 0; z-index: 20; pointer-events: none;
+  }
 </style>
 </head>
 <body>
 <div id="hud">WASD / Arrow keys to roll. Loading...</div>
+<div id="fade-overlay"></div>
 
 <script type="importmap">
 {
@@ -32,5 +40,3 @@
 <script type="module" src="http://localhost:8081/game.js"></script>
 </body>
 </html>
-
-
