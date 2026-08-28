@@ -75,7 +75,7 @@ As long as the `lib/` folder stays next to `src/http.bzg`, BSL will resolve
 the `include("lib/socket.bzg")` call at the top of the server script
 automatically. No extra install step is required.
 
-**NOTE:** To redownload socket, delete the `lib/folder` and run in terminal the command.
+**NOTE:** To redownload socket, delete the `lib` folder and run in terminal the command.
 
 ```bash
 bzg install socket
