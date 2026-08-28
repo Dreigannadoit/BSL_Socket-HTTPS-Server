@@ -16,7 +16,7 @@ The project has two moving parts that run side by side:
 
 | Component | Role | Port |
 |---|---|---|
-| **BSL socket server** (`src/http.bzg`) | Hand-rolled HTTP server that routes `/`, `/home`, `/about`, and serves a 404 page | `8080` |
+| **BSL socket server** (`src/http.bzg`) | Hand-rolled HTTP server that routes `/`, `/home`, `/about`, and serves a 404 page | `3000` |
 | **Static asset server** (`npx serve`) | Serves the game's JS bundle and binary assets (`.glb` models, `.mp3` sounds) with CORS enabled, since the BSL server only serves HTML | `8081` |
 
 The `/home` page loads `game.js` from the asset server and renders the Maze
@@ -73,7 +73,7 @@ repository** — you don't need to download it separately:
 
 As long as the `lib/` folder stays next to `src/http.bzg`, BSL will resolve
 the `include("lib/socket.bzg")` call at the top of the server script
-automatically. No extra install step is required.
+automatically. No       extra install step is required.
 
 **NOTE:** To redownload socket, delete the `lib` folder and run in terminal the command.
 
@@ -101,7 +101,7 @@ npm run dev
 This runs two processes at once:
 
 - `npm run bsl` → `bonezegei src/http.bzg` (the game/page server on port
-  `8080`)
+  `3000`)
 - `npm run assets` → `npx serve public -l 8081 --cors` (the static asset
   server on port `8081`, serving `game.js` and the `public/assets/` files)
 
@@ -113,7 +113,7 @@ npm run bsl       # just the BSL HTTP server
 npm run assets     # just the static asset server
 ```
 
-A successful start prints `Server running on http://localhost:8080/` in
+A successful start prints `Server running on http://localhost:3000/` in
 the terminal running the BSL process.
 
 
@@ -125,10 +125,10 @@ With both servers running, open a browser and try the following endpoints:
 
 | URL | What it does |
 |---|---|
-| `http://localhost:8080/` | Redirects (`302 Found`) to `/home` |
-| `http://localhost:8080/home` | Loads the Maze Ball game (`public/index.html`), which in turn pulls `game.js` and the 3D assets from `http://localhost:8081` |
-| `http://localhost:8080/about` | Loads the about page (`public/about.html`) |
-| `http://localhost:8080/anything-else` | Any unrecognized path returns a `404 Not Found` with `public/404.html` |
+| `http://localhost:3000/` | Redirects (`302 Found`) to `/home` |
+| `http://localhost:3000/home` | Loads the Maze Ball game (`public/index.html`), which in turn pulls `game.js` and the 3D assets from `http://localhost:8081` |
+| `http://localhost:3000/about` | Loads the about page (`public/about.html`) |
+| `http://localhost:3000/anything-else` | Any unrecognized path returns a `404 Not Found` with `public/404.html` |
 
 Once `/home` loads, use **WASD** or the **arrow keys** to roll the ball
 through the maze. The heads-up display in the top-left corner confirms the

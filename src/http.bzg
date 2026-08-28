@@ -11,7 +11,7 @@ if (server < 0) {
     print("Socket Creation Failed\n");
 }
 
-if (socket_bind(server, 0, 8080) < 0) {
+if (socket_bind(server, 0, 3000) < 0) {
     print("Socket Bind Failed.\n");
 }
 
@@ -19,7 +19,7 @@ if (socket_listen(server, 5) < 0) {
     print("socket_listen() Failed.\n");
 }
 
-print("Server running on http://localhost:8080/\n");
+print("Server running on http://localhost:3000/\n");
 
 while (1) {
     var client = socket_accept(server);
