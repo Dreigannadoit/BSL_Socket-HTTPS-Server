@@ -667,11 +667,66 @@ function addTrimeshCollider(mesh) {
 // ── Neon glow path ──
 // Visual-only markers (no physics), purely decorative — swap their placeholder
 // prototype texture for a bright emissive core plus two additive "halo"
-// duplicates (tight + wide) stacked around it. Layering two halos at
-// different sizes/opacities fakes a bloom falloff — bright near the surface,
-// soft and wide further out — without the cost of a full postprocessing pass.
+// shells (tight + wide) stacked around it.
+//
+// The previous version built each halo by literally scaling up a copy of the
+// same geometry with a flat, uniform-opacity material. That doesn't read as
+// a glow — a uniformly-opaque shape just looks like a bigger, hard-edged
+// duplicate of the original silhouette (a solid outline), because there's no
+// falloff: every fragment on the halo has the exact same alpha whether it's
+// near the core or right at the outer edge.
+//
+// A glow needs to fade — bright near the surface, dissolving to nothing at
+// the edges. Since these halo shells can have arbitrary geometry/UVs (not
+// necessarily flat discs a radial texture could map onto), the reliable way
+// to get that falloff without a full bloom postprocessing pass is a Fresnel
+// ("rim") shader: alpha is driven by how edge-on each fragment is relative
+// to the camera, so the shell is closer to transparent where it faces the
+// viewer head-on and glows brighter where it curves away — exactly the
+// silhouette-hugging falloff a real bloom halo has.
 const GLOW_COLOR = 0x33ccff;
-const glowMaterials = []; // { mat, role } — pulsed each frame
+const glowMaterials = []; // { mat, role, uniforms } — pulsed each frame
+
+function createGlowShellMaterial(color, baseOpacity, power) {
+    return new THREE.ShaderMaterial({
+        uniforms: {
+            glowColor: { value: new THREE.Color(color) },
+            opacity: { value: baseOpacity },
+            power: { value: power },
+        },
+        vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vViewDir;
+            void main() {
+                vNormal = normalize(normalMatrix * normal);
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                vViewDir = normalize(-mvPosition.xyz);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 glowColor;
+            uniform float opacity;
+            uniform float power;
+            varying vec3 vNormal;
+            varying vec3 vViewDir;
+            void main() {
+                float facing = clamp(dot(normalize(vNormal), normalize(vViewDir)), 0.0, 1.0);
+                // Soft falloff from bright edges to transparent center-facing
+                // fragments — this is what actually fakes bloom, not the
+                // scale of the shell itself.
+                float rim = pow(1.0 - facing, power);
+                gl_FragColor = vec4(glowColor, rim * opacity);
+            }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+    });
+}
 
 function setupGlowPath(glowRoot) {
     // Collect the target meshes into a plain array FIRST. Mutating the
@@ -701,39 +756,6 @@ function setupGlowPath(glowRoot) {
         child.castShadow = false;
         child.receiveShadow = false;
         glowMaterials.push({ mat: coreMat, role: "core" });
-
-        // Tight, bright halo — hugs the geometry closely
-        const innerMat = new THREE.MeshBasicMaterial({
-            color: GLOW_COLOR,
-            transparent: true,
-            opacity: 0.55,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide,
-            toneMapped: false,
-        });
-        const innerHalo = new THREE.Mesh(child.geometry, innerMat);
-        innerHalo.scale.setScalar(1.18);
-        innerHalo.renderOrder = 1;
-        child.add(innerHalo);
-        glowMaterials.push({ mat: innerMat, role: "haloInner" });
-
-        // Wide, soft halo — the part that reads as ambient light bleeding
-        // off the path rather than the object itself
-        const outerMat = new THREE.MeshBasicMaterial({
-            color: GLOW_COLOR,
-            transparent: true,
-            opacity: 0.22,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            side: THREE.DoubleSide,
-            toneMapped: false,
-        });
-        const outerHalo = new THREE.Mesh(child.geometry, outerMat);
-        outerHalo.scale.setScalar(1.55);
-        outerHalo.renderOrder = 1;
-        child.add(outerHalo);
-        glowMaterials.push({ mat: outerMat, role: "haloOuter" });
     }
 }
 
@@ -748,10 +770,10 @@ function updateGlowPulse(elapsed) {
                 mat.emissiveIntensity = 2.2 + pulse * 1.2; // ~2.2–3.4
                 break;
             case "haloInner":
-                mat.opacity = 0.4 + pulse * 0.3; // ~0.4–0.7
+                mat.uniforms.opacity.value = 0.65 + pulse * 0.3; // ~0.65–0.95
                 break;
             case "haloOuter":
-                mat.opacity = 0.14 + pulse * 0.22; // ~0.14–0.36
+                mat.uniforms.opacity.value = 0.3 + pulse * 0.3; // ~0.3–0.6
                 break;
         }
     }
