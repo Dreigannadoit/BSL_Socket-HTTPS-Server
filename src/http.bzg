@@ -32,7 +32,8 @@ while (1) {
         var path = substr(match, 0, sizeof(match) - 9);
         print("File Requested: " + path);
 
-        // Change Path "/" to default to "/home" for aesthetic  puposes lmao
+        // TODO: Redo Comment to be more proffessional 
+        // Change Path "/" to default to "/home" for aesthetic puposes lmao
         if (path == "/") {
             var HTTP =  "HTTP/1.1 302 Found\r\n"
                         +"Location: /home\r\n"
