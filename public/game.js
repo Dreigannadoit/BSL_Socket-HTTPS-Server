@@ -1,6 +1,11 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as CANNON from "cannon-es";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 const hud = document.getElementById("hud");
 const fadeOverlay = document.getElementById("fade-overlay");
@@ -22,7 +27,114 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1    ;
 document.body.appendChild(renderer.domElement);
+
+// ── Postprocessing: SELECTIVE bloom ──
+// A plain single-pass UnrealBloomPass with threshold 0 blooms the entire
+// frame — with this scene's light background, fog, and bright lights that
+// means almost every pixel is above the threshold, so the whole window
+// washes out to white. The fix is the standard three.js selective-bloom
+// pattern: render the glow-path meshes on their own layer, bloom ONLY that
+// layer in a separate offscreen composer, then composite the bloomed result
+// back on top of the normally-lit full scene in a final pass. This keeps
+// strength/radius/threshold exactly as requested while confining bloom to
+// the neon path itself.
+const BLOOM_LAYER = 1;
+const bloomLayer = new THREE.Layers();
+bloomLayer.set(BLOOM_LAYER);
+
+const darkMaterial = new THREE.MeshBasicMaterial({ color: "black" });
+const materialCache = {};
+
+function darkenNonBloomed(obj) {
+    if (obj.isMesh && bloomLayer.test(obj.layers) === false) {
+        materialCache[obj.uuid] = obj.material;
+        obj.material = darkMaterial;
+    }
+}
+
+function restoreMaterial(obj) {
+    if (materialCache[obj.uuid]) {
+        obj.material = materialCache[obj.uuid];
+        delete materialCache[obj.uuid];
+    }
+}
+
+const renderScene = new RenderPass(scene, camera);
+
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.6,  // strength
+    1,    // radius
+    1    // threshold
+);
+
+// Offscreen composer: renders ONLY the bloom-layer objects (everything else
+// swapped to solid black first), then blooms that isolated render.
+const bloomComposer = new EffectComposer(renderer);
+bloomComposer.renderToScreen = false;
+bloomComposer.addPass(renderScene);
+bloomComposer.addPass(bloomPass);
+
+// Final composer: renders the full scene normally, then a mix shader adds
+// the bloomed texture from bloomComposer on top.
+const mixPass = new ShaderPass(
+    new THREE.ShaderMaterial({
+        uniforms: {
+            baseTexture: { value: null },
+            bloomTexture: { value: bloomComposer.renderTarget2.texture },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D baseTexture;
+            uniform sampler2D bloomTexture;
+            varying vec2 vUv;
+            void main() {
+                gl_FragColor = texture2D(baseTexture, vUv) + vec4(1.0) * texture2D(bloomTexture, vUv);
+            }
+        `,
+        defines: {},
+    }),
+    "baseTexture"
+);
+mixPass.needsSwap = true;
+
+const outputPass = new OutputPass();
+
+const composer = new EffectComposer(renderer);
+composer.addPass(renderScene);
+composer.addPass(mixPass);
+composer.addPass(outputPass);
+
+function renderWithSelectiveBloom() {
+    // The scene's background color and fog aren't meshes, so
+    // darkenNonBloomed() can't mask them — left alone, that light,
+    // near-uniform backdrop fills almost the whole bloom-pass frame and
+    // gets bloomed itself, then added on top of the final image. That's
+    // what was washing the whole window white. Blank both out just for
+    // the isolated bloom render, then restore them for the real one.
+    const prevBackground = scene.background;
+    const prevFog = scene.fog;
+    scene.background = null;
+    scene.fog = null;
+
+    scene.traverse(darkenNonBloomed);
+    bloomComposer.render();
+    scene.traverse(restoreMaterial);
+
+    scene.background = prevBackground;
+    scene.fog = prevFog;
+
+    composer.render();
+}
 
 const hemi = new THREE.HemisphereLight(0xffffff, 0xaabbd0, 0.8); // ★ raised back up a bit for general scene visibility now that shadows track the player correctly
 scene.add(hemi);
@@ -30,7 +142,7 @@ scene.add(hemi);
 // scene.fog = new THREE.Fog(0xdfe6ea, 8, 35);
 // scene.fog = new THREE.FogExp2(0xdfe6ea, 0.035);
 
-scene.fog = new THREE.FogExp2(0xdfe6ea, 0.06);
+// scene.fog = new THREE.FogExp2(0xdfe6ea, 0.06);
 
 // ── Ground mist plane: cheap, effective height-fog fake ──
 const mistGeo = new THREE.PlaneGeometry(200, 200);
@@ -747,7 +859,7 @@ function setupGlowPath(glowRoot) {
         const coreMat = new THREE.MeshStandardMaterial({
             color: GLOW_COLOR,
             emissive: GLOW_COLOR,
-            emissiveIntensity: 2.6,
+            emissiveIntensity: 1.6,
             roughness: 0.3,
             metalness: 0,
             toneMapped: false, // let emissive push past 1.0 and actually read as "hot"
@@ -755,7 +867,11 @@ function setupGlowPath(glowRoot) {
         child.material = coreMat;
         child.castShadow = false;
         child.receiveShadow = false;
+        child.layers.enable(BLOOM_LAYER); // only glow-path meshes feed the bloom pass
         glowMaterials.push({ mat: coreMat, role: "core" });
+
+        // Stack two Fresnel-rim halo shells around the core mesh — a tight
+        // inner one and a wider outer one — using createGlowShellMaterial
     }
 }
 
@@ -1047,6 +1163,8 @@ window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    bloomComposer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 // ── Main loop ──
@@ -1078,7 +1196,7 @@ function animate() {
     updateGlowPulse(clock.elapsedTime);
     updateSunFollow();
     updateCamera();
-    renderer.render(scene, camera);
+    renderWithSelectiveBloom();
 }
 
 animate();
