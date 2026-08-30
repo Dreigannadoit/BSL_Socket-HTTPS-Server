@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { GLB_URL } from "./config.js";
-import { setupFogFromNode } from "./fog.js";
+import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEARCOAT_ROUGHNESS } from "./config.js";
 
 // Loads the level GLB, builds physics colliders from its "CollisionShapes"
-// node, sets up the neon glow path and ground fog from their marker nodes,
-// places the ball at "Spawn", and hands the loaded spawn position + the
-// collision root off to the respawn system so it can compute fall bounds.
+// node, sets up the neon glow path from its marker node, places the ball at
+// "Spawn", and hands the loaded spawn position + the collision root off to
+// the respawn system so it can compute fall bounds. (Ground fog is no
+// longer authored per-level — see PlayerFog, which tracks the player's
+// height everywhere instead of a fixed marker.)
 export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, respawnSystem, hud }) {
     const loader = new GLTFLoader();
 
@@ -22,7 +23,6 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, respa
             const spawnNode = root.getObjectByName("Spawn");
             const collisionRoot = root.getObjectByName("CollisionShapes");
             const glowPathRoot = root.getObjectByName("GlowPath");
-            const fogNode = root.getObjectByName("Fog");
 
             const spawnPos = new THREE.Vector3();
             if (spawnNode) {
@@ -62,10 +62,10 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, respa
                             emissive: oldMat.emissive || undefined,
                             emissiveMap: oldMat.emissiveMap || null,
                             emissiveIntensity: oldMat.emissiveIntensity ?? 1,
-                            roughness: 0.15,
-                            metalness: 0.1,
-                            clearcoat: 0.6,
-                            clearcoatRoughness: 0.2,
+                            roughness: WORLD_ROUGHNESS,
+                            metalness: WORLD_METALNESS,
+                            clearcoat: WORLD_CLEARCOAT,
+                            clearcoatRoughness: WORLD_CLEARCOAT_ROUGHNESS,
                         });
 
                         // aoMap requires a second UV set — copy it over if
@@ -83,12 +83,6 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, respa
                 glowPath.setup(glowPathRoot);
             } else {
                 console.warn('No "GlowPath" node found — skipping neon path glow.');
-            }
-
-            if (fogNode) {
-                setupFogFromNode(fogNode, scene);
-            } else {
-                console.warn('No "Fog" node found — skipping ground mist.');
             }
 
             hud.textContent =

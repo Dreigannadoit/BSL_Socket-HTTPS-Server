@@ -6,6 +6,7 @@ import { createBall } from "./modules/ball.js";
 import { AudioManager } from "./modules/audioManager.js";
 import { BloomRenderer } from "./modules/bloomRenderer.js";
 import { GlowPath } from "./modules/glowPath.js";
+import { PlayerFog } from "./modules/fog.js";
 import { Controls } from "./modules/controls.js";
 import { PlayerController } from "./modules/playerController.js";
 import { CameraController } from "./modules/cameraController.js";
@@ -21,7 +22,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xdfe6ea);
 
 const camera = new THREE.PerspectiveCamera(
-    45,
+    55,
     window.innerWidth / window.innerHeight,
     0.05,
     200
@@ -52,6 +53,9 @@ const audioManager = new AudioManager();
 
 // ── Neon glow path ──
 const glowPath = new GlowPath();
+
+// ── Player-relative depth fog ──
+const playerFog = new PlayerFog(scene);
 
 // ── Input / movement / camera ──
 const controls = new Controls();
@@ -102,6 +106,7 @@ function animate() {
 
     audioManager.update(dt, ballBody, controls.keys);
     glowPath.update(clock.elapsedTime);
+    playerFog.update(ballMesh.position);
     updateSunFollow(ballMesh.position);
     cameraController.update(ballMesh, player);
     bloomRenderer.render();

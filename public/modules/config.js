@@ -97,12 +97,27 @@ export const ROLLING_MAX_GAIN = 0.5;
 export const ROLLING_MOVE_THRESHOLD = 0.05; // m/s below which the ball counts as stopped
 export const AUDIO_SMOOTH = 6;              // rolling gain transition speed
 
-// ── Neon glow path ──
+// ── World collision-mesh material ──
+// Matte with just a hint of shine: high roughness keeps highlights soft and
+// diffuse, metalness stays at 0 so it doesn't read as metal, and a thin,
+// rough clearcoat adds a faint sheen without looking lacquered/glossy.
+export const WORLD_ROUGHNESS = 0.75;
+export const WORLD_METALNESS = 0;
+export const WORLD_CLEARCOAT = 0.15;
+export const WORLD_CLEARCOAT_ROUGHNESS = 0.45;
 export const GLOW_COLOR = 0x33ccff;
 export const BLOOM_LAYER = 1;
 
-// ── Height-based fog ──
-export const FOG_LAYER_COUNT = 14;    // more layers = smoother gradient, at some fill-rate cost
-export const FOG_TOP_OPACITY = 0.05;  // barely-there haze at the top of the volume
+// ── Player-relative depth fog ──
+// Tracks the ball's height rather than a fixed level marker: anything more
+// than FOG_START_DEPTH below the player starts to haze over, ramping to
+// fully opaque by FOG_FULL_DEPTH below. Depth test stays on, so solid
+// ground still occludes it normally — it only becomes visible when there's
+// actually open space (a pit, a gap) beneath the player for it to fill.
+export const FOG_START_DEPTH = 5;     // meters below the player where haze begins
+export const FOG_FULL_DEPTH = 20;     // meters below the player where it's fully opaque
+export const FOG_LAYER_COUNT = 16;    // more layers = smoother gradient, at some fill-rate cost
+export const FOG_TOP_OPACITY = 0.05;  // barely-there haze at the start-depth end
 export const FOG_FALLOFF_POWER = 2.2; // >1 keeps the top thin and piles density on fast near the bottom
 export const FOG_COLOR = 0xdfe6ea;
+export const FOG_PLANE_SIZE = 500;    // wide enough that its edges are never visible on screen
