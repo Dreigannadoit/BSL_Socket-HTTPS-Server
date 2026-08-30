@@ -7,21 +7,25 @@ import {
     FOG_FALLOFF_POWER,
     FOG_COLOR,
     FOG_PLANE_SIZE,
+    isFogFollowPlayer,
 } from "./config.js";
 
-// Height-based fog that tracks the player instead of a fixed level marker:
-// opacity ramps from a light haze at FOG_START_DEPTH below the ball to
-// fully opaque at FOG_FULL_DEPTH below it, so looking down into ANY pit or
-// gap gets progressively murkier the deeper it goes, until the bottom is
-// completely hidden — no matter where on the map that pit is.
+// Height-based fog band positioned relative to the player. By default
+// (isFogFollowPlayer = false) it's anchored once, via init(), to the
+// player's spawn height and never moves again for the rest of the round —
+// so it reads as a fixed layer of murk sitting in the depths, and climbing
+// to a higher platform doesn't drag it up too. Set isFogFollowPlayer to
+// true in config.js to instead have the whole band continuously follow the
+// player's current height every frame.
 //
-// A single flat plane can't do this — it's one opacity everywhere — so
-// instead this stacks several horizontal planes spanning the depth band,
-// each denser than the one above it. The planes keep normal depth testing
-// (just no depth writing, like any transparent object), so solid ground
-// between the player and a plane still occludes it as usual — the fog only
-// becomes visible where there's genuinely open space beneath the player for
-// it to fill.
+// Either way, opacity ramps from a light haze at FOG_START_DEPTH below the
+// anchor to fully opaque at FOG_FULL_DEPTH below it. A single flat plane
+// can't do this — it's one opacity everywhere — so instead this stacks
+// several horizontal planes spanning the depth band, each denser than the
+// one above it. The planes keep normal depth testing (just no depth
+// writing, like any transparent object), so solid ground between the
+// player and a plane still occludes it as usual — the fog only becomes
+// visible where there's genuinely open space for it to fill.
 export class PlayerFog {
     constructor(scene) {
         this.layers = [];
@@ -50,12 +54,26 @@ export class PlayerFog {
         }
     }
 
-    // Re-centers every layer under the player's current position each
-    // frame, so the whole depth band rides along with the ball.
+    // Positions every layer under the given point once — call this with
+    // the player's spawn position after the level loads. This is what
+    // fixes the band's height for the rest of the round when
+    // isFogFollowPlayer is false.
+    init(position) {
+        this._reposition(position);
+    }
+
+    // Called every frame from the main loop. Only actually moves the band
+    // when isFogFollowPlayer is true; otherwise the band stays exactly
+    // where init() left it.
     update(playerPosition) {
+        if (!isFogFollowPlayer) return;
+        this._reposition(playerPosition);
+    }
+
+    _reposition(position) {
         for (const { plane, t } of this.layers) {
             const depth = THREE.MathUtils.lerp(FOG_START_DEPTH, FOG_FULL_DEPTH, t);
-            plane.position.set(playerPosition.x, playerPosition.y - depth, playerPosition.z);
+            plane.position.set(position.x, position.y - depth, position.z);
         }
     }
 }

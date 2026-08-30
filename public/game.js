@@ -22,7 +22,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xdfe6ea);
 
 const camera = new THREE.PerspectiveCamera(
-    55,
+    52,
     window.innerWidth / window.innerHeight,
     0.05,
     200
@@ -66,7 +66,7 @@ const cameraController = new CameraController(camera);
 const respawnSystem = new RespawnSystem(ballBody, fadeOverlay, audioManager);
 
 // ── Level ──
-loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, respawnSystem, hud });
+loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hud });
 
 // ── Resize ──
 window.addEventListener("resize", () => {

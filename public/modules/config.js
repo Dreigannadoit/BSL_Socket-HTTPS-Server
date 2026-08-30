@@ -18,7 +18,7 @@ export const SOUND_FILES = {
 export const BALL_RADIUS = 0.35;
 
 // ── Movement ──
-export const MAX_SPEED = 6.3;
+export const MAX_SPEED = 7.3;
 export const ACCEL = 15;
 export const DECEL_RATE = 1.5;
 // Lower = smoother/slower direction changes while moving. Decoupled from
@@ -121,3 +121,9 @@ export const FOG_TOP_OPACITY = 0.05;  // barely-there haze at the start-depth en
 export const FOG_FALLOFF_POWER = 2.2; // >1 keeps the top thin and piles density on fast near the bottom
 export const FOG_COLOR = 0xdfe6ea;
 export const FOG_PLANE_SIZE = 500;    // wide enough that its edges are never visible on screen
+
+// When false (default), the fog band is anchored once at load — 5m below
+// the player's spawn position — and stays there for the rest of the round.
+// When true, the whole band continuously follows the player's current
+// height instead.
+export const isFogFollowPlayer = false;

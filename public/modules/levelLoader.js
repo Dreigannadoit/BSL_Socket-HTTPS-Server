@@ -8,7 +8,7 @@ import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEAR
 // the respawn system so it can compute fall bounds. (Ground fog is no
 // longer authored per-level — see PlayerFog, which tracks the player's
 // height everywhere instead of a fixed marker.)
-export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, respawnSystem, hud }) {
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hud }) {
     const loader = new GLTFLoader();
 
     loader.load(
@@ -37,6 +37,7 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, respa
             ballBody.angularVelocity.set(0, 0, 0);
 
             respawnSystem.setLevelBounds(collisionRoot, spawnPos);
+            playerFog.init(spawnPos);
 
             let colliderCount = 0;
             if (collisionRoot) {

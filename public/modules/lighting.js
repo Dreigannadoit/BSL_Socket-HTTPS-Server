@@ -27,7 +27,7 @@ export function createLighting(scene) {
     // both it and the sun itself to the ball every frame (see
     // updateSunFollow below) so the shadow box travels with the player
     // across the whole map.
-    const sunOffset = new THREE.Vector3(16, 8, 4);
+    const sunOffset = new THREE.Vector3(-11.25, 3.25, 19);
     scene.add(sun.target);
 
     const fill = new THREE.DirectionalLight(0xffffff, 0.3);
