@@ -11,19 +11,20 @@ import { Controls } from "./modules/controls.js";
 import { PlayerController } from "./modules/playerController.js";
 import { CameraController } from "./modules/cameraController.js";
 import { RespawnSystem } from "./modules/respawnSystem.js";
+import { HotspotSystem } from "./modules/hotspotSystem.js";
 import { loadLevel } from "./modules/levelLoader.js";
-import { BALL_RADIUS } from "./modules/config.js";
+import { BALL_RADIUS, HOTSPOT_STUCK_DURATION } from "./modules/config.js";
 
 const hud = document.getElementById("hud");
 const fadeOverlay = document.getElementById("fade-overlay");
+const hotspotPopup = document.getElementById("hotspot-popup");
 
 // ── Scene / camera / renderer ──
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xdfe6ea);
 
 const camera = new THREE.PerspectiveCamera(
-    // 52,
-    35,
+    45,
     window.innerWidth / window.innerHeight,
     0.05,
     200
@@ -66,8 +67,11 @@ const cameraController = new CameraController(camera);
 // ── Respawn / fall handling ──
 const respawnSystem = new RespawnSystem(ballBody, fadeOverlay, audioManager);
 
+// ── Hotspot triggers ──
+const hotspotSystem = new HotspotSystem(hotspotPopup, () => player.stick(HOTSPOT_STUCK_DURATION));
+
 // ── Level ──
-loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hud });
+loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hotspotSystem, hud });
 
 // ── Resize ──
 window.addEventListener("resize", () => {
@@ -86,7 +90,6 @@ function animate() {
     const dt = Math.min(clock.getDelta(), 0.05);
 
     player.update(dt);
-    ballGlow.update(player.inputHoldTime);
     world.step(1 / 60, dt, 10);
 
     // Sync angular velocity after physics integration
@@ -100,6 +103,10 @@ function animate() {
     respawnSystem.checkRespawn(() => {
         player.bounceTimer = 0;
         player.ungroundedTime = 0;
+        // The respawn/checkpoint trigger is the game's current hotspot —
+        // lock out input briefly so the player doesn't immediately roll
+        // straight back off the edge they just fell from.
+        player.stick(HOTSPOT_STUCK_DURATION);
     });
     respawnSystem.updateFade(dt);
 
@@ -107,10 +114,17 @@ function animate() {
     ballMesh.quaternion.copy(ballBody.quaternion);
 
     audioManager.update(dt, ballBody, controls.keys);
+    ballGlow.update(player.inputHoldTime);
     glowPath.update(clock.elapsedTime);
     playerFog.update(ballMesh.position);
+    hotspotSystem.update(ballMesh.position);
+    hotspotSystem.updateGlow(clock.elapsedTime);
+    // One frame behind (uses this frame's hotspot check, applied to next
+    // frame's movement) — same lag every other hotspot-driven system here
+    // already has, and not perceptible at 60fps.
+    player.setHotspotActive(hotspotSystem.isActive);
     updateSunFollow(ballMesh.position);
-    cameraController.update(ballMesh, player);
+    cameraController.update(ballMesh, player, hotspotSystem.isActive);
     bloomRenderer.render();
 }
 

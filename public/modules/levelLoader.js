@@ -3,12 +3,13 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEARCOAT_ROUGHNESS } from "./config.js";
 
 // Loads the level GLB, builds physics colliders from its "CollisionShapes"
-// node, sets up the neon glow path from its marker node, places the ball at
-// "Spawn", and hands the loaded spawn position + the collision root off to
-// the respawn system so it can compute fall bounds. (Ground fog is no
-// longer authored per-level — see PlayerFog, which tracks the player's
-// height everywhere instead of a fixed marker.)
-export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hud }) {
+// node, sets up the neon glow path from its marker node, registers hotspot
+// triggers from its "Hotspots" node, places the ball at "Spawn", and hands
+// the loaded spawn position + the collision root off to the respawn system
+// so it can compute fall bounds. (Ground fog is no longer authored
+// per-level — see PlayerFog, which tracks the player's height everywhere
+// instead of a fixed marker.)
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hotspotSystem, hud }) {
     const loader = new GLTFLoader();
 
     loader.load(
@@ -23,6 +24,7 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playe
             const spawnNode = root.getObjectByName("Spawn");
             const collisionRoot = root.getObjectByName("CollisionShapes");
             const glowPathRoot = root.getObjectByName("GlowPath");
+            const hotspotsRoot = root.getObjectByName("Hotspots");
 
             const spawnPos = new THREE.Vector3();
             if (spawnNode) {
@@ -84,6 +86,12 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playe
                 glowPath.setup(glowPathRoot);
             } else {
                 console.warn('No "GlowPath" node found — skipping neon path glow.');
+            }
+
+            if (hotspotsRoot) {
+                hotspotSystem.setup(hotspotsRoot);
+            } else {
+                console.warn('No "Hotspots" node found — skipping hotspot triggers.');
             }
 
             hud.textContent =

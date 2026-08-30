@@ -13,9 +13,11 @@ import {
     MAX_LANDING_BOUNCES,
     GROUND_RAY_LENGTH,
     MIN_AIRBORNE_TIME,
+    HOTSPOT_WOBBLE_AMPLITUDE,
+    HOTSPOT_WOBBLE_FREQUENCY,
+    HOTSPOT_WOBBLE_DECAY,
     getAccelFraction,
 } from "./config.js";
-
 // Owns ground detection, rolling/skidding movement, and the wall/landing
 // bounce overlays. Exposes the state (isGrounded, reversalTimer, ...) that
 // CameraController needs to lean into skids.
@@ -59,6 +61,32 @@ export class PlayerController {
         this.currentInput = { x: 0, z: 0 };
         this.inputHoldTime = 0;
 
+        // Whether the ball is currently inside an active hotspot trigger
+        // (HotspotSystem.isActive). Independent of stuckTimer — stuckTimer
+        // only covers the brief lockout right after entry, while this
+        // stays true for as long as the ball remains in range, including
+        // after control returns. Used to mute movement feel (half speed,
+        // no wall/landing bounce feedback) for the whole time the ball is
+        // near the marker, not just during the initial freeze.
+        this.isHotspotActive = false;
+
+        // Hotspot stun: while > 0, movement is fully frozen — momentum is
+        // canceled the moment it starts (see stick()) and horizontal
+        // velocity stays pinned at 0 every frame (see _applyStuck()).
+        // Gravity/vertical velocity is untouched, so a stun starting
+        // mid-air still falls and lands normally.
+        this.stuckTimer = 0;
+
+        // Wobble-to-stop: while stuck, the ball oscillates sideways around
+        // where it was when the lockout started, decaying to ~0 by the end
+        // of the lockout. wobbleDir is perpendicular to the ball's travel
+        // direction at that moment; wobbleCenter is its position then.
+        this.wobbleTime = 0;
+        this.wobbleDirX = 1;
+        this.wobbleDirZ = 0;
+        this.wobbleCenterX = 0;
+        this.wobbleCenterZ = 0;
+
         // Only ONE "collide" listener is needed. Wall impacts are the one
         // case the physics "collide" event is a reliable signal for (a wall
         // hit's velocity along the normal doesn't get resolved away by
@@ -71,9 +99,99 @@ export class PlayerController {
     _onCollide(event) {
         const normal = event.contact.ni;
         if (Math.abs(normal.y) < 0.7) {
+            // No wall-bounce overlay while parked on a hotspot — the
+            // physical restitution still nudges the ball (that's cannon-es
+            // resolving the actual collision), but we don't layer the
+            // smoothed bounce-blend feedback on top of it.
+            if (this.isHotspotActive) return;
             this.wallHitPending = true;
             this.audioManager.playBounceSound();
         }
+    }
+
+    // Called every frame from the main loop with HotspotSystem.isActive.
+    // Immediately cancels any bounce feedback already in flight so
+    // stepping onto a hotspot mid-bounce doesn't let the sequence finish
+    // out before going quiet.
+    setHotspotActive(active) {
+        this.isHotspotActive = active;
+        if (active) {
+            this.bounceTimer = 0;
+            this.wallHitPending = false;
+            this.landingBounceActive = false;
+            this.bouncesRemaining = MAX_LANDING_BOUNCES;
+        }
+    }
+
+    // Locks out player input for `seconds` (e.g. when a hotspot fires).
+    // Uses max() so a hotspot triggered mid-stun extends rather than
+    // shortens the lockout. Only (re)anchors the wobble on a FRESH lockout
+    // (stuckTimer was already at 0) so re-triggering mid-wobble extends the
+    // timer without restarting the oscillation from a jarring new center.
+    stick(seconds) {
+        const wasStuck = this.stuckTimer > 0;
+        this.stuckTimer = Math.max(this.stuckTimer, seconds);
+
+        if (!wasStuck) {
+            const ballBody = this.ballBody;
+            const speed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
+            if (speed > 0.001) {
+                // Perpendicular to the current travel direction (rotate
+                // the horizontal velocity 90°), so the wobble reads as
+                // "shaking off to the side" rather than jittering forward.
+                this.wobbleDirX = -ballBody.velocity.z / speed;
+                this.wobbleDirZ = ballBody.velocity.x / speed;
+            } else {
+                this.wobbleDirX = 1;
+                this.wobbleDirZ = 0;
+            }
+            this.wobbleCenterX = ballBody.position.x;
+            this.wobbleCenterZ = ballBody.position.z;
+            this.wobbleTime = 0;
+
+            // Cancel all horizontal momentum immediately, rather than
+            // letting it decay — from here the wobble is a pure position
+            // nudge, not leftover velocity that could still carry the ball
+            // somewhere.
+            ballBody.velocity.x = 0;
+            ballBody.velocity.z = 0;
+        }
+    }
+
+    // While stuck, movement is fully disabled rather than merely
+    // decelerating: horizontal velocity is pinned to exactly 0 every
+    // frame, not eased toward it, so there's no residual momentum left the
+    // instant the lockout ends. Vertical velocity (gravity) is untouched,
+    // so the ball still falls/lands normally if the stun starts mid-air.
+    // The wobble is layered on top as a pure position nudge.
+    _applyStuck(dt) {
+        const ballBody = this.ballBody;
+        ballBody.velocity.x = 0;
+        ballBody.velocity.z = 0;
+
+        this.currentInput.x = 0;
+        this.currentInput.z = 0;
+        this.inputHoldTime = 0;
+        this.prevTargetX = 0;
+        this.prevTargetZ = 0;
+        this.reversalTimer = 0;
+
+        this._applyWobble(dt);
+    }
+
+    // Nudges the ball's position sideways around wobbleCenter by a
+    // decaying sine offset — a pure visual shake, not a velocity change,
+    // since _applyStuck() already pins horizontal velocity to 0 while this
+    // is active.
+    _applyWobble(dt) {
+        this.wobbleTime += dt;
+        const decay = Math.exp(-HOTSPOT_WOBBLE_DECAY * this.wobbleTime);
+        const offset =
+            Math.sin(this.wobbleTime * HOTSPOT_WOBBLE_FREQUENCY * Math.PI * 2) *
+            HOTSPOT_WOBBLE_AMPLITUDE *
+            decay;
+        this.ballBody.position.x = this.wobbleCenterX + this.wobbleDirX * offset;
+        this.ballBody.position.z = this.wobbleCenterZ + this.wobbleDirZ * offset;
     }
 
     checkGround(dt) {
@@ -109,7 +227,12 @@ export class PlayerController {
         // raycast flicker.
         if (this.isGrounded) {
             if (!wasGrounded) {
-                if (this.ungroundedTime >= MIN_AIRBORNE_TIME && !this.landingBounceActive) {
+                if (this.isHotspotActive) {
+                    // Land silently and settle — no bounce sequence while
+                    // on a hotspot.
+                    this.landingBounceActive = false;
+                    this.bouncesRemaining = MAX_LANDING_BOUNCES;
+                } else if (this.ungroundedTime >= MIN_AIRBORNE_TIME && !this.landingBounceActive) {
                     this.landingBounceActive = true;
                     this.bouncesRemaining = MAX_LANDING_BOUNCES;
                     this.audioManager.playBounceSound(0.8);
@@ -166,6 +289,15 @@ export class PlayerController {
         const rawMag = Math.hypot(rawX, rawZ);
         const targetX = rawMag > 0 ? rawX / rawMag : 0;
         const targetZ = rawMag > 0 ? rawZ / rawMag : 0;
+
+        // While stuck (e.g. right after a hotspot fires), movement is
+        // fully frozen — not just steering locked out. See _applyStuck().
+        if (this.stuckTimer > 0) {
+            this.stuckTimer = Math.max(0, this.stuckTimer - dt);
+            this._applyStuck(dt);
+            return;
+        }
+
         const noInput = targetX === 0 && targetZ === 0;
 
         if (noInput) {
@@ -271,10 +403,14 @@ export class PlayerController {
         const upSlopeBoost = 1 + slopeAngle * 0.6;
 
         const speedFraction = getAccelFraction(this.inputHoldTime);
+        // Half speed while parked on a hotspot — same accel curve, just
+        // scaled down, so it still ramps smoothly rather than feeling
+        // capped.
+        const hotspotSpeedScale = this.isHotspotActive ? 0.5 : 1;
 
-        let targetVelX = moveDir.x * MAX_SPEED * upSlopeBoost * speedFraction;
-        let targetVelZ = moveDir.z * MAX_SPEED * upSlopeBoost * speedFraction;
-        let targetVelY = moveDir.y * MAX_SPEED * upSlopeBoost * speedFraction;
+        let targetVelX = moveDir.x * MAX_SPEED * upSlopeBoost * speedFraction * hotspotSpeedScale;
+        let targetVelZ = moveDir.z * MAX_SPEED * upSlopeBoost * speedFraction * hotspotSpeedScale;
+        let targetVelY = moveDir.y * MAX_SPEED * upSlopeBoost * speedFraction * hotspotSpeedScale;
 
         if (this.bounceTimer > 0) {
             this.bounceTimer -= dt;

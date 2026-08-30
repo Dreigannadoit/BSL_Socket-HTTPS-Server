@@ -18,7 +18,7 @@ export const SOUND_FILES = {
 export const BALL_RADIUS = 0.35;
 
 // ── Movement ──
-export const MAX_SPEED = 7.3;
+export const MAX_SPEED = 6.3;
 export const ACCEL = 15;
 export const DECEL_RATE = 1.5;
 // Lower = smoother/slower direction changes while moving. Decoupled from
@@ -63,6 +63,15 @@ export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
 export const SKID_CAMERA_ROLL = 0.045;        // radians of camera roll at full skid intensity
 export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead of snapping
 
+// ── Hotspot camera framing ──
+// While a hotspot is active, CameraController eases from the normal follow
+// framing into a tighter, wider-FOV shot looking slightly above the ball,
+// then eases back out once it clears.
+export const HOTSPOT_CAMERA_OFFSET = { x: 2.5, y: 1.0, z: 2.5 }; // tighter than CAMERA_OFFSET
+export const HOTSPOT_CAMERA_FOV = 55;          // wider than the base 45° FOV — exaggerates the moment
+export const HOTSPOT_TARGET_Y_OFFSET = 0.5;    // meters above the ball the camera looks at
+export const HOTSPOT_CAMERA_BLEND = 0.1;       // per-frame ease factor (not dt-scaled), matches SKID_CAMERA_ROLL_SMOOTH's style
+
 // ── Wall bounce overlay ──
 export const BOUNCE_DURATION = 0.3; // seconds of smooth transition after a wall impact
 
@@ -74,6 +83,27 @@ export const GROUND_RAY_LENGTH = BALL_RADIUS + 0.15;
 // Seconds of airtime required before a landing counts as "real" rather than
 // a seam/ramp raycast flicker.
 export const MIN_AIRBORNE_TIME = 0.12;
+
+// ── Hotspots ──
+// How long player input is locked out after a hotspot fires (e.g. the
+// respawn/checkpoint trigger). The ball still obeys physics (gravity,
+// slope sliding, wall bounces) during this window — the player just can't
+// steer until it elapses.
+export const HOTSPOT_STUCK_DURATION = 1.0; // seconds
+// How close (meters) the ball's center needs to be to a level-authored
+// Hotspot_N marker's position before HotspotSystem treats it as "entered".
+export const HOTSPOT_TRIGGER_RADIUS = 0.5;
+
+// ── Hotspot wobble-to-stop ──
+// The moment input locks out, the ball doesn't just glide to a stop — it
+// oscillates side-to-side (perpendicular to whatever direction it was
+// traveling at that instant) with an offset that decays over the stuck
+// window, reading as a "wobble" rather than a flat deceleration. Tuned so
+// the decay is essentially zero by HOTSPOT_STUCK_DURATION, so it settles
+// right as control returns instead of visibly snapping back to center.
+export const HOTSPOT_WOBBLE_AMPLITUDE = 0.08; // meters of max sideways offset — gentle, not a hard shake
+export const HOTSPOT_WOBBLE_FREQUENCY = 4;    // oscillations per second — slower, softer rhythm
+export const HOTSPOT_WOBBLE_DECAY = 5;        // higher = settles faster
 
 // ── Respawn ──
 // Seconds "behind" the ball's live grounded position that the respawn
@@ -108,13 +138,13 @@ export const WORLD_CLEARCOAT_ROUGHNESS = 0.45;
 export const GLOW_COLOR = 0x33ccff;
 export const BLOOM_LAYER = 1;
 
-// ── Ball glow (speed-linked bloom) ──
-// Peak emissiveIntensity each ball part ramps toward as getAccelFraction
-// goes 0 -> 1. ball_light is intentionally the brighter of the two at max
-// so it reads as the "hot core" against inner_ball's dimmer shell — keep
-// BALL_GLOW_LIGHT_MAX > BALL_GLOW_INNER_MAX if either is tuned later.
-export const BALL_GLOW_INNER_MAX = 0.2;
-export const BALL_GLOW_LIGHT_MAX = 15.0;
+// ── Ball speed-glow (bloom) ──
+// Reuses the same 500/700/900ms accel curve that drives movement speed
+// (getAccelFraction above), applied to the ball's glow-material
+// emissiveIntensity instead of velocity. ball_light glows brighter than
+// inner_ball at full ramp.
+export const BALL_GLOW_INNER_MAX = 2.0; // inner_ball emissiveIntensity ceiling
+export const BALL_GLOW_LIGHT_MAX = 3.6; // ball_light emissiveIntensity ceiling — brighter than inner_ball
 
 // ── Player-relative depth fog ──
 // Tracks the ball's height rather than a fixed level marker: anything more
