@@ -1,0 +1,103 @@
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { GLB_URL } from "./config.js";
+import { setupFogFromNode } from "./fog.js";
+
+// Loads the level GLB, builds physics colliders from its "CollisionShapes"
+// node, sets up the neon glow path and ground fog from their marker nodes,
+// places the ball at "Spawn", and hands the loaded spawn position + the
+// collision root off to the respawn system so it can compute fall bounds.
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, respawnSystem, hud }) {
+    const loader = new GLTFLoader();
+
+    loader.load(
+        GLB_URL,
+        (gltf) => {
+            const root = gltf.scene;
+            root.scale.multiplyScalar(1.4);
+            root.updateMatrixWorld(true);
+            root.rotateY(Math.PI / 2);
+            scene.add(root);
+
+            const spawnNode = root.getObjectByName("Spawn");
+            const collisionRoot = root.getObjectByName("CollisionShapes");
+            const glowPathRoot = root.getObjectByName("GlowPath");
+            const fogNode = root.getObjectByName("Fog");
+
+            const spawnPos = new THREE.Vector3();
+            if (spawnNode) {
+                spawnNode.getWorldPosition(spawnPos);
+                spawnNode.visible = false;
+            } else {
+                console.warn('No "Spawn" node found, defaulting to origin.');
+            }
+            spawnPos.y += 0.3;
+            ballBody.position.set(spawnPos.x, spawnPos.y, spawnPos.z);
+            ballBody.velocity.set(0, 0, 0);
+            ballBody.angularVelocity.set(0, 0, 0);
+
+            respawnSystem.setLevelBounds(collisionRoot, spawnPos);
+
+            let colliderCount = 0;
+            if (collisionRoot) {
+                collisionRoot.traverse((child) => {
+                    if (child.isMesh && child.geometry) {
+                        addTrimeshCollider(child);
+                        colliderCount++;
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        child.visible = true;
+
+                        // Preserve original textures/maps, just upgrade the
+                        // material properties.
+                        const oldMat = child.material;
+
+                        child.material = new THREE.MeshPhysicalMaterial({
+                            map: oldMat.map || null,
+                            color: oldMat.map ? 0xffffff : (oldMat.color || 0x2288ee), // white so texture isn't tinted
+                            normalMap: oldMat.normalMap || null,
+                            normalScale: oldMat.normalScale || undefined,
+                            aoMap: oldMat.aoMap || null,
+                            aoMapIntensity: oldMat.aoMapIntensity ?? 1,
+                            emissive: oldMat.emissive || undefined,
+                            emissiveMap: oldMat.emissiveMap || null,
+                            emissiveIntensity: oldMat.emissiveIntensity ?? 1,
+                            roughness: 0.15,
+                            metalness: 0.1,
+                            clearcoat: 0.6,
+                            clearcoatRoughness: 0.2,
+                        });
+
+                        // aoMap requires a second UV set — copy it over if
+                        // present.
+                        if (oldMat.aoMap && child.geometry.attributes.uv2) {
+                            child.material.aoMap = oldMat.aoMap;
+                        }
+                    }
+                });
+            } else {
+                console.warn('No "CollisionShapes" node found — no colliders built.');
+            }
+
+            if (glowPathRoot) {
+                glowPath.setup(glowPathRoot);
+            } else {
+                console.warn('No "GlowPath" node found — skipping neon path glow.');
+            }
+
+            if (fogNode) {
+                setupFogFromNode(fogNode, scene);
+            } else {
+                console.warn('No "Fog" node found — skipping ground mist.');
+            }
+
+            hud.textContent =
+                `Loaded (5.6x world). ${colliderCount} collision meshes. WASD / Arrows to roll.`;
+        },
+        undefined,
+        (err) => {
+            console.error(err);
+            hud.textContent = "Failed to load maze_platform.glb — check console.";
+        }
+    );
+}
