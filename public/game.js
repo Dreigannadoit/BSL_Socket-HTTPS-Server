@@ -22,7 +22,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xdfe6ea);
 
 const camera = new THREE.PerspectiveCamera(
-    52,
+    // 52,
+    35,
     window.innerWidth / window.innerHeight,
     0.05,
     200
@@ -46,7 +47,7 @@ const { updateSunFollow } = createLighting(scene);
 const { world, ballMaterial, addTrimeshCollider } = createPhysicsWorld();
 
 // ── Ball (render + physics) ──
-const { ballMesh, ballBody } = createBall(scene, world, ballMaterial);
+const { ballMesh, ballBody, ballGlow } = createBall(scene, world, ballMaterial);
 
 // ── Audio ──
 const audioManager = new AudioManager();
@@ -85,6 +86,7 @@ function animate() {
     const dt = Math.min(clock.getDelta(), 0.05);
 
     player.update(dt);
+    ballGlow.update(player.inputHoldTime);
     world.step(1 / 60, dt, 10);
 
     // Sync angular velocity after physics integration

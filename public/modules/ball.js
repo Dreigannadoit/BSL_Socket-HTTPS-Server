@@ -2,6 +2,7 @@ import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { BALL_RADIUS, BALL_GLB_URL } from "./config.js";
+import { BallGlow } from "./ballGlow.js";
 
 function createBallTexture() {
     const size = 256;
@@ -53,6 +54,8 @@ export function createBall(scene, world, ballMaterial) {
     });
     world.addBody(ballBody);
 
+    const ballGlow = new BallGlow();
+
     const ballLoader = new GLTFLoader();
     ballLoader.load(
         BALL_GLB_URL,
@@ -81,6 +84,11 @@ export function createBall(scene, world, ballMaterial) {
                 }
             });
 
+            // Looks for primitives using the "inner_ball" / "ball_light"
+            // materials and wires them up for speed-linked bloom — see
+            // ballGlow.js.
+            ballGlow.setup(model);
+
             ballMesh.add(model);
         },
         undefined,
@@ -99,5 +107,5 @@ export function createBall(scene, world, ballMaterial) {
         }
     );
 
-    return { ballMesh, ballBody };
+    return { ballMesh, ballBody, ballGlow };
 }

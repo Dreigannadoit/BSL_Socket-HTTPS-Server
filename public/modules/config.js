@@ -108,6 +108,14 @@ export const WORLD_CLEARCOAT_ROUGHNESS = 0.45;
 export const GLOW_COLOR = 0x33ccff;
 export const BLOOM_LAYER = 1;
 
+// ── Ball glow (speed-linked bloom) ──
+// Peak emissiveIntensity each ball part ramps toward as getAccelFraction
+// goes 0 -> 1. ball_light is intentionally the brighter of the two at max
+// so it reads as the "hot core" against inner_ball's dimmer shell — keep
+// BALL_GLOW_LIGHT_MAX > BALL_GLOW_INNER_MAX if either is tuned later.
+export const BALL_GLOW_INNER_MAX = 0.2;
+export const BALL_GLOW_LIGHT_MAX = 15.0;
+
 // ── Player-relative depth fog ──
 // Tracks the ball's height rather than a fixed level marker: anything more
 // than FOG_START_DEPTH below the player starts to haze over, ramping to
