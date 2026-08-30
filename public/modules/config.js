@@ -69,7 +69,7 @@ export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead o
 // then eases back out once it clears.
 export const HOTSPOT_CAMERA_OFFSET = { x: 2.5, y: 1.0, z: 2.5 }; // tighter than CAMERA_OFFSET
 export const HOTSPOT_CAMERA_FOV = 55;          // wider than the base 45° FOV — exaggerates the moment
-export const HOTSPOT_TARGET_Y_OFFSET = 0.5;    // meters above the ball the camera looks at
+export const HOTSPOT_TARGET_Y_OFFSET = 0.85;    // meters above the ball the camera looks at
 export const HOTSPOT_CAMERA_BLEND = 0.1;       // per-frame ease factor (not dt-scaled), matches SKID_CAMERA_ROLL_SMOOTH's style
 
 // ── Wall bounce overlay ──

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+import { createSky } from "./modules/sky.js";
 import { createLighting } from "./modules/lighting.js";
 import { createPhysicsWorld } from "./modules/physicsWorld.js";
 import { createBall } from "./modules/ball.js";
@@ -21,7 +22,11 @@ const hotspotPopup = document.getElementById("hotspot-popup");
 
 // ── Scene / camera / renderer ──
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xdfe6ea);
+
+// ── Sky ──
+// A camera-following gradient dome (deep blue overhead fading to warm
+// orange at the horizon) instead of a flat background color.
+const { update: updateSky } = createSky(scene);
 
 const camera = new THREE.PerspectiveCamera(
     45,
@@ -125,6 +130,7 @@ function animate() {
     player.setHotspotActive(hotspotSystem.isActive);
     updateSunFollow(ballMesh.position);
     cameraController.update(ballMesh, player, hotspotSystem.isActive);
+    updateSky(camera.position);
     bloomRenderer.setHotspotActive(hotspotSystem.isActive);
     bloomRenderer.render();
 }
