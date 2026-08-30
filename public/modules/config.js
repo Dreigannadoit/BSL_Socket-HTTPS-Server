@@ -18,7 +18,7 @@ export const SOUND_FILES = {
 export const BALL_RADIUS = 0.35;
 
 // ── Movement ──
-export const MAX_SPEED = 6.3;
+export const MAX_SPEED = 9.3;
 export const ACCEL = 15;
 export const DECEL_RATE = 1.5;
 // Lower = smoother/slower direction changes while moving. Decoupled from
