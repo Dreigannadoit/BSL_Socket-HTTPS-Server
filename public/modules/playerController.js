@@ -77,6 +77,12 @@ export class PlayerController {
         // mid-air still falls and lands normally.
         this.stuckTimer = 0;
 
+        // External hard-freeze switch — used by GameModeManager while a
+        // mode-result popup (or the Free Roam "end run?" confirmation) is
+        // on screen. Unlike stick(), this has no timer of its own and stays
+        // frozen until setFrozen(false) is called explicitly.
+        this.frozen = false;
+
         // Wobble-to-stop: while stuck, the ball oscillates sideways around
         // where it was when the lockout started, decaying to ~0 by the end
         // of the lockout. wobbleDir is perpendicular to the ball's travel
@@ -120,6 +126,25 @@ export class PlayerController {
             this.wallHitPending = false;
             this.landingBounceActive = false;
             this.bouncesRemaining = MAX_LANDING_BOUNCES;
+        }
+    }
+
+    // Called by GameModeManager to hard-freeze/unfreeze movement while a
+    // popup (mode result, Free Roam exit confirmation) is up. Zeroes
+    // horizontal velocity and the input/skid state immediately on
+    // freezing, same as _applyStuck, so nothing carries over once it's
+    // released.
+    setFrozen(active) {
+        this.frozen = active;
+        if (active) {
+            this.ballBody.velocity.x = 0;
+            this.ballBody.velocity.z = 0;
+            this.currentInput.x = 0;
+            this.currentInput.z = 0;
+            this.inputHoldTime = 0;
+            this.reversalTimer = 0;
+            this.prevTargetX = 0;
+            this.prevTargetZ = 0;
         }
     }
 
@@ -267,6 +292,12 @@ export class PlayerController {
 
         const ballBody = this.ballBody;
         const keys = this.keys;
+
+        if (this.frozen) {
+            ballBody.velocity.x = 0;
+            ballBody.velocity.z = 0;
+            return;
+        }
 
         if (this.wallHitPending) {
             this.bounceVelocity.copy(ballBody.velocity);

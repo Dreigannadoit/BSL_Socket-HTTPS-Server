@@ -22,6 +22,11 @@ export class RespawnSystem {
         this.audioManager = audioManager;
 
         this.lastSafePosition = new THREE.Vector3();
+        // The level's actual spawn point, fixed once in setLevelBounds() and
+        // never updated again — unlike lastSafePosition (which drifts as the
+        // player explores), this is what GameModeManager teleports back to
+        // when a game-mode run ends/resets.
+        this.spawnPosition = new THREE.Vector3();
         this.groundedHistory = []; // { t, x, y, z } samples while grounded, oldest first
 
         this.fallThresholdY = -Infinity; // set once level geometry loads
@@ -44,6 +49,7 @@ export class RespawnSystem {
         }
         this.fadeTriggerY = this.fallThresholdY + FADE_TRIGGER_MARGIN;
 
+        this.spawnPosition.copy(spawnPos);
         this.lastSafePosition.copy(spawnPos);
         this.resetGroundedHistory(spawnPos);
     }

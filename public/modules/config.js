@@ -180,3 +180,24 @@ export const FOG_PLANE_SIZE = 500;    // wide enough that its edges are never vi
 // When true, the whole band continuously follows the player's current
 // height instead.
 export const isFogFollowPlayer = false;
+
+// ── Game modes ──
+export const GAME_MODE_FREE_ROAM = "freeroam";
+export const GAME_MODE_SPEEDRUN = "speedrun";
+export const GAME_MODE_TIME_TRIAL = "timetrial";
+
+// The one hotspot that stays interactable (it doubles as the mode-select
+// menu) while Speedrun/Time Trial hide every other hotspot for the
+// duration of the run.
+export const HOTSPOT_1_NAME = "Hotspot_1";
+
+export const TIME_TRIAL_DURATION = 120; // seconds on the Time Trial countdown
+export const TIME_TRIAL_ORB_COUNT = 20; // orbs randomly picked from "Collectables" each run
+export const ORB_COLOR = 0xffcc33;
+export const ORB_MIN_RADIUS = 0.15; // floor so a tiny/degenerate Sphere marker still reads as a pickup
+
+// Padding (world units) added on top of the ball's own radius when
+// building the StartTrigger/EndTrigger bounding boxes, so a fast-moving
+// ball reliably registers the trigger instead of possibly skipping past it
+// between two physics steps.
+export const TRIGGER_EXPAND = 0.05;

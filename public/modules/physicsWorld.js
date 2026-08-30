@@ -63,6 +63,11 @@ export function createPhysicsWorld() {
         const body = new CANNON.Body({ mass: 0, material: bodyMaterial });
         body.addShape(shape);
         world.addBody(body);
+        // Returned so callers that need to toggle this collider later (e.g.
+        // GameModeManager removing/re-adding StartTrigger's solid body as
+        // the player picks/leaves a game mode) don't have to track it
+        // themselves.
+        return body;
     }
 
     return { world, floorMaterial, wallMaterial, ballMaterial, addTrimeshCollider };

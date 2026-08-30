@@ -9,7 +9,7 @@ import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEAR
 // so it can compute fall bounds. (Ground fog is no longer authored
 // per-level — see PlayerFog, which tracks the player's height everywhere
 // instead of a fixed marker.)
-export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hotspotSystem, hud }) {
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud }) {
     const loader = new GLTFLoader();
 
     loader.load(
@@ -93,6 +93,10 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playe
             } else {
                 console.warn('No "Hotspots" node found — skipping hotspot triggers.');
             }
+
+            // StartTrigger / EndTrigger / Collectables — powers the
+            // selectable game modes (Free Roam / Speedrun / Time Trial).
+            gameModeManager.onLevelLoaded({ root });
 
             hud.textContent =
                 `Loaded (5.6x world). ${colliderCount} collision meshes. WASD / Arrows to roll.`;

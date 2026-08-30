@@ -13,6 +13,8 @@ import { PlayerController } from "./modules/playerController.js";
 import { CameraController } from "./modules/cameraController.js";
 import { RespawnSystem } from "./modules/respawnSystem.js";
 import { HotspotSystem } from "./modules/hotspotSystem.js";
+import { GameModeManager } from "./modules/gameModeManager.js";
+import { GameModeUI } from "./modules/gameModeUI.js";
 import { loadLevel } from "./modules/levelLoader.js";
 import { BALL_RADIUS, HOTSPOT_STUCK_DURATION } from "./modules/config.js";
 
@@ -72,11 +74,35 @@ const cameraController = new CameraController(camera);
 // ── Respawn / fall handling ──
 const respawnSystem = new RespawnSystem(ballBody, fadeOverlay, audioManager);
 
+// ── Game-mode UI (mode badge, timer/orb readout, result popups) ──
+const gameModeUI = new GameModeUI();
+
 // ── Hotspot triggers ──
-const hotspotSystem = new HotspotSystem(hotspotPopup, () => player.stick(HOTSPOT_STUCK_DURATION));
+// Hotspot_1 doubles as the mode-select menu (see hotspotSystem.js's
+// HOTSPOT_CONTENT) — context wires its buttons into gameModeManager below.
+// gameModeManager is declared after this, but these callbacks only ever
+// fire later (once the player actually clicks a button), by which point
+// it's fully constructed.
+const hotspotSystem = new HotspotSystem(hotspotPopup, () => player.stick(HOTSPOT_STUCK_DURATION), {
+    onSelectMode: (mode) => gameModeManager.selectMode(mode),
+    getCurrentMode: () => gameModeManager.getMode(),
+});
+
+// ── Game modes (Free Roam / Speedrun / Time Trial) ──
+const gameModeManager = new GameModeManager({
+    scene,
+    world,
+    addTrimeshCollider,
+    ballBody,
+    player,
+    respawnSystem,
+    hotspotSystem,
+    audioManager,
+    ui: gameModeUI,
+});
 
 // ── Level ──
-loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hotspotSystem, hud });
+loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud });
 
 // ── Resize ──
 window.addEventListener("resize", () => {
@@ -124,6 +150,7 @@ function animate() {
     playerFog.update(ballMesh.position);
     hotspotSystem.update(ballMesh.position);
     hotspotSystem.updateGlow(clock.elapsedTime);
+    gameModeManager.update(dt, ballMesh.position, clock.elapsedTime);
     // One frame behind (uses this frame's hotspot check, applied to next
     // frame's movement) — same lag every other hotspot-driven system here
     // already has, and not perceptible at 60fps.

@@ -23,6 +23,7 @@ const HOTSPOT_CONTENT = {
         <div class="start_menu_container">
             <div class="menu_header">
                 <p>Select A Mode</p>
+                <p id="current-mode-label" style="opacity:0.7;font-size:0.85em;margin:2px 0 0;"></p>
                 <div class="slider_buttons">
                     <button class="mode_selector_button prev">
                         <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
@@ -54,36 +55,27 @@ const HOTSPOT_CONTENT = {
                         <img src="http://localhost:8081/assets/test.png" alt="">
                         <br>
                         <h1>Free Roam</h1>
-                        <p>Explore the maze at your own pace, no objectives.</p>
+                        <p>Explore the maze at your own pace, no objectives. Every hotspot stays open.</p>
                         <br>
-                        <button>Continue</button>
+                        <button data-mode="freeroam">Select</button>
                     </div>
-                    
+
                     <div class="start_menu">
                         <img src="http://localhost:8081/assets/test.png" alt="">
                         <br>
                         <h1>Speedrun</h1>
-                        <p>You know what this is. If not then bruh.</p>
+                        <p>Race from the Start marker to the End marker as fast as you can. Every other hotspot is hidden until you finish.</p>
                         <br>
-                        <button>Continue</button>
+                        <button data-mode="speedrun">Select</button>
                     </div>
 
                     <div class="start_menu">
                         <img src="http://localhost:8081/assets/test.png" alt="">
                         <br>
                         <h1>Time Trial</h1>
-                        <p>Race against the clock as you try to collect all 20 orbs that spawn randomly on the map.</p>
+                        <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute clock runs out. Every other hotspot is hidden until you finish.</p>
                         <br>
-                        <button>Continue</button>
-                    </div>
-
-                    <div class="start_menu">
-                        <img src="http://localhost:8081/assets/test.png" alt="">
-                        <br>
-                        <h1>Pick a Boo</h1>
-                        <p>Collect 10 gems as fast as you can. But a new one spawns only after you collect the last.</p>
-                        <br>
-                        <button>Continue</button>
+                        <button data-mode="timetrial">Select</button>
                     </div>
 
                 </div>
@@ -94,12 +86,24 @@ const HOTSPOT_CONTENT = {
         // Runs once right after this markup is injected into the popup —
         // same goToSlide logic as index.html's inline <script>, just
         // scoped to popupEl since innerHTML gives us a fresh DOM each
-        // time the hotspot is entered.
-        init: (popupEl) => {
+        // time the hotspot is entered. `context` is HotspotSystem's own
+        // context object (see its constructor) — this is how the mode
+        // buttons reach GameModeManager without HOTSPOT_CONTENT needing a
+        // direct import of it.
+        init: (popupEl, context = {}) => {
             const track = popupEl.querySelector(".start_menu_track");
             const slides = popupEl.querySelectorAll(".start_menu");
             const prevBtn = popupEl.querySelector(".slider_buttons .prev");
             const nextBtn = popupEl.querySelector(".slider_buttons .next");
+            const currentModeLabel = popupEl.querySelector("#current-mode-label");
+
+            const MODE_NAMES = { freeroam: "Free Roam", speedrun: "Speedrun", timetrial: "Time Trial" };
+            if (currentModeLabel) {
+                const current = context.getCurrentMode ? context.getCurrentMode() : null;
+                currentModeLabel.textContent = current
+                    ? `Current mode: ${MODE_NAMES[current] || current}`
+                    : "No mode selected yet";
+            }
 
             let currentIndex = 0;
             const goToSlide = (index) => {
@@ -109,6 +113,12 @@ const HOTSPOT_CONTENT = {
 
             prevBtn.addEventListener("click", () => goToSlide(currentIndex - 1));
             nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
+
+            popupEl.querySelectorAll("button[data-mode]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    if (context.onSelectMode) context.onSelectMode(btn.dataset.mode);
+                });
+            });
         },
     },
     Hotspot_2: {
@@ -128,10 +138,15 @@ const HOTSPOT_CONTENT = {
 // flag, same breathing-pulse curve), so the markers themselves are visible
 // in the level as glowing beacons rather than invisible trigger volumes.
 export class HotspotSystem {
-    constructor(popupEl, onEnter) {
+    // `context` is handed straight through to each hotspot's content.init()
+    // (see Hotspot_1 above) — GameModeManager plugs onSelectMode/
+    // getCurrentMode in here via game.js so the mode-select menu can call
+    // back into it without HOTSPOT_CONTENT importing it directly.
+    constructor(popupEl, onEnter, context = {}) {
         this.popupEl = popupEl;
         this.onEnter = onEnter;
-        this.hotspots = []; // { name, position, content }
+        this.context = context;
+        this.hotspots = []; // { name, position, content, node, hidden }
         this.activeHotspot = null; // currently-inside hotspot, or null
         this.glowMaterials = []; // pulsed each frame, same pattern as GlowPath
     }
@@ -150,7 +165,7 @@ export class HotspotSystem {
 
             const position = new THREE.Vector3();
             child.getWorldPosition(position);
-            this.hotspots.push({ name: child.name, position, content });
+            this.hotspots.push({ name: child.name, position, content, node: child, hidden: false });
 
             this._setupGlow(child);
         });
@@ -200,21 +215,48 @@ export class HotspotSystem {
 
     // Called every frame with the ball's live world position. Handles both
     // the enter and exit edges; only one hotspot can be active at a time.
+    // Hidden hotspots (see hideAllExcept below) are skipped entirely, so
+    // they can't be entered while suppressed for a Speedrun/Time Trial run.
     update(ballPosition) {
         if (this.activeHotspot) {
             const dist = ballPosition.distanceTo(this.activeHotspot.position);
-            if (dist > HOTSPOT_EXIT_RADIUS) {
+            if (dist > HOTSPOT_EXIT_RADIUS || this.activeHotspot.hidden) {
                 this._exit();
             }
         }
 
         if (!this.activeHotspot) {
             for (const hotspot of this.hotspots) {
+                if (hotspot.hidden) continue;
                 if (ballPosition.distanceTo(hotspot.position) <= HOTSPOT_ENTER_RADIUS) {
                     this._enter(hotspot);
                     break;
                 }
             }
+        }
+    }
+
+    // Hides every registered hotspot except `keepName` (GameModeManager
+    // passes HOTSPOT_1_NAME) — used while a timed Speedrun/Time Trial run is
+    // active, so only the mode-select marker stays interactable. Force-exits
+    // the active hotspot immediately if it's one of the ones being hidden,
+    // rather than waiting for the ball to wander back out of range.
+    hideAllExcept(keepName) {
+        for (const hotspot of this.hotspots) {
+            hotspot.hidden = hotspot.name !== keepName;
+            if (hotspot.node) hotspot.node.visible = !hotspot.hidden;
+        }
+        if (this.activeHotspot && this.activeHotspot.hidden) {
+            this._exit();
+        }
+    }
+
+    // Brings every hotspot back — called on selecting Free Roam, or when a
+    // Speedrun/Time Trial run ends (success, failure, or is abandoned).
+    restoreAll() {
+        for (const hotspot of this.hotspots) {
+            hotspot.hidden = false;
+            if (hotspot.node) hotspot.node.visible = true;
         }
     }
 
@@ -225,7 +267,7 @@ export class HotspotSystem {
         void this.popupEl.offsetWidth;
         this.popupEl.classList.add("visible");
 
-        if (hotspot.content.init) hotspot.content.init(this.popupEl);
+        if (hotspot.content.init) hotspot.content.init(this.popupEl, this.context);
 
         if (this.onEnter) this.onEnter(hotspot);
     }
