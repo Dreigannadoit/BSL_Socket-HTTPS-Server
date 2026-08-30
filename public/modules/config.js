@@ -94,6 +94,10 @@ export const HOTSPOT_STUCK_DURATION = 1.0; // seconds
 // Hotspot_N marker's position before HotspotSystem treats it as "entered".
 export const HOTSPOT_TRIGGER_RADIUS = 0.5;
 
+export const HOTSPOT_ENTER_RADIUS = 0.5;
+export const HOTSPOT_EXIT_RADIUS = 0.7; 
+
+
 // ── Hotspot wobble-to-stop ──
 // The moment input locks out, the ball doesn't just glide to a stop — it
 // oscillates side-to-side (perpendicular to whatever direction it was
@@ -137,6 +141,17 @@ export const WORLD_CLEARCOAT = 0.15;
 export const WORLD_CLEARCOAT_ROUGHNESS = 0.45;
 export const GLOW_COLOR = 0x33ccff;
 export const BLOOM_LAYER = 1;
+
+// ── Hotspot environment grayscale ──
+// Camera layer flagged onto every ball mesh (main model + fallback sphere).
+// BloomRenderer renders a mask pass using only this layer so it knows which
+// screen pixels belong to the ball and should stay in full color while the
+// rest of the frame desaturates.
+export const BALL_COLOR_LAYER = 2;
+// Per-frame ease factor (not dt-scaled, same style as HOTSPOT_CAMERA_BLEND)
+// used to smoothly blend the environment between full color and full
+// grayscale as hotspots activate/deactivate.
+export const HOTSPOT_GRAYSCALE_BLEND = 0.06;
 
 // ── Ball speed-glow (bloom) ──
 // Reuses the same 500/700/900ms accel curve that drives movement speed

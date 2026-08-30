@@ -1,78 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>Maze Ball</title>
-<style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #111; }
-  canvas { display: block; }
-  #hud {
-    position: fixed; top: 10px; left: 10px; color: #eee;
-    font-family: monospace; font-size: 13px; z-index: 10;
-    background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px;
-    pointer-events: none; white-space: pre-line;
-  }
-  /* Fullscreen fade-to-black transition, driven every frame from game.js
-     (opacity is set directly rather than via CSS transitions so it can be
-     synced to the actual fall/respawn timing). */
-  #fade-overlay {
-    position: fixed; inset: 0; background: #000;
-    opacity: 0; z-index: 20; pointer-events: none;
-  }
-
-  /* Hotspot popup — HotspotSystem swaps both the innerHTML and this
-     element's class per-hotspot (see hotspotSystem.js), so the fade
-     in/out below is the only thing shared across every hotspot; the
-     actual layout/look comes from the .hotspot-content-N rules further
-     down. pointer-events stays off since hotspots are exited by driving
-     away, not by clicking anything. */
-  #hotspot-popup {
-    position: fixed;
-    left: 50%;
-    bottom: 14%;
-    z-index: 15;
-    pointer-events: none;
-    opacity: 0;
-    transform: translate(-50%, 12px);
-    transition: opacity 0.25s ease, transform 0.25s ease;
-    font-family: sans-serif;
-  }
-  #hotspot-popup.visible {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-
-  /* Per-hotspot layouts — add one of these per new Hotspot_N entry in
-     hotspotSystem.js's HOTSPOT_CONTENT map. These two are just examples
-     showing the layouts can differ completely, not only the text. */
-  .hotspot-content-1 {
-    background: #fff;
-    color: #111;
-    border-radius: 10px;
-    padding: 16px 22px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-    font-size: 16px;
-    text-align: center;
-  }
-  .hotspot-content-2 {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    background: #16202b;
-    color: #eee;
-    border-radius: 10px;
-    padding: 14px 20px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    font-size: 15px;
-  }
-</style>
+    <meta charset="UTF-8">
+    <title>Maze Ball</title>
+    <link rel="stylesheet" href="http://localhost:8081/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
 </head>
-<body>
-<div id="hud">WASD / Arrow keys to roll. Loading...</div>
-<div id="fade-overlay"></div>
-<div id="hotspot-popup"></div>
 
-<script type="importmap">
+<body>
+    <div id="hud">WASD / Arrow keys to roll. Loading...</div>
+    <div id="fade-overlay"></div>
+    <div id="hotspot-popup"></div>
+
+    <script type="importmap">
 {
   "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -82,8 +25,9 @@
 }
 </script>
 
-<!-- game.js and maze_platform.glb are served from the asset server on :8081,
+    <!-- game.js and maze_platform.glb are served from the asset server on :8081,
      not through BSL -->
-<script type="module" src="http://localhost:8081/game.js"></script>
+    <script type="module" src="http://localhost:8081/game.js"></script>
 </body>
+
 </html>

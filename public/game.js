@@ -125,6 +125,7 @@ function animate() {
     player.setHotspotActive(hotspotSystem.isActive);
     updateSunFollow(ballMesh.position);
     cameraController.update(ballMesh, player, hotspotSystem.isActive);
+    bloomRenderer.setHotspotActive(hotspotSystem.isActive);
     bloomRenderer.render();
 }
 

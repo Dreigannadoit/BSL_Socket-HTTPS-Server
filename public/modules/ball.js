@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { BALL_RADIUS, BALL_GLB_URL } from "./config.js";
+import { BALL_RADIUS, BALL_GLB_URL, BALL_COLOR_LAYER } from "./config.js";
 import { BallGlow } from "./ballGlow.js";
 
 function createBallTexture() {
@@ -81,6 +81,11 @@ export function createBall(scene, world, ballMaterial) {
                 if (child.isMesh) {
                     child.castShadow = true;
                     child.receiveShadow = true;
+                    // Flags every ball primitive (including the ones
+                    // ballGlow.js later re-materials) so BloomRenderer's
+                    // grayscale mask pass can find them and keep the ball
+                    // in full color while the environment desaturates.
+                    child.layers.enable(BALL_COLOR_LAYER);
                 }
             });
 
@@ -94,16 +99,16 @@ export function createBall(scene, world, ballMaterial) {
         undefined,
         (err) => {
             console.error("Failed to load ball.glb — falling back to procedural ball:", err);
-            ballMesh.add(
-                new THREE.Mesh(
-                    new THREE.SphereGeometry(BALL_RADIUS, 32, 32),
-                    new THREE.MeshStandardMaterial({
-                        map: createBallTexture(),
-                        roughness: 0.4,
-                        metalness: 0.1,
-                    })
-                )
+            const fallbackMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(BALL_RADIUS, 32, 32),
+                new THREE.MeshStandardMaterial({
+                    map: createBallTexture(),
+                    roughness: 0.4,
+                    metalness: 0.1,
+                })
             );
+            fallbackMesh.layers.enable(BALL_COLOR_LAYER);
+            ballMesh.add(fallbackMesh);
         }
     );
 

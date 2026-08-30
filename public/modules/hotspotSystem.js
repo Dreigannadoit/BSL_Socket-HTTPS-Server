@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER } from "./config.js";
+import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER, HOTSPOT_ENTER_RADIUS, HOTSPOT_EXIT_RADIUS } from "./config.js";
 
 // Maps a hotspot's world node name (as authored in the level GLB, under a
 // "Hotspots" root — same pattern as "CollisionShapes"/"GlowPath") to the
@@ -10,7 +10,106 @@ import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER } from "./config.js";
 const HOTSPOT_CONTENT = {
     Hotspot_1: {
         className: "hotspot-content-1",
-        render: () => `<div>Content 1</div>`,
+        render: () => `
+        <div class="container">
+        <div class="start_card">
+            <h5>Hello, World!</h5>
+            <br>
+            <h1>Maze-Ball</h1>
+            <p>A Project by Drei</p>
+            <p>Inspired by Netlify's 5 mil+ celebration</p>
+        </div>
+
+        <div class="start_menu_container">
+            <div class="menu_header">
+                <p>Select A Mode</p>
+                <div class="slider_buttons">
+                    <button class="mode_selector_button prev">
+                        <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <span>Prev Mode</span>
+                    </button>
+                    <button class="mode_selector_button next">
+                        <span>Next Mode</span>
+                        <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <br>
+
+            <!-- viewport: clips the track -->
+            <div class="start_menu_slider">
+                <!-- track: holds all slides side by side, gets translated -->
+                <div class="start_menu_track">
+
+                    <div class="start_menu">
+                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <br>
+                        <h1>Free Roam</h1>
+                        <p>Explore the maze at your own pace, no objectives.</p>
+                        <br>
+                        <button>Continue</button>
+                    </div>
+                    
+                    <div class="start_menu">
+                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <br>
+                        <h1>Speedrun</h1>
+                        <p>You know what this is. If not then bruh.</p>
+                        <br>
+                        <button>Continue</button>
+                    </div>
+
+                    <div class="start_menu">
+                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <br>
+                        <h1>Time Trial</h1>
+                        <p>Race against the clock as you try to collect all 20 orbs that spawn randomly on the map.</p>
+                        <br>
+                        <button>Continue</button>
+                    </div>
+
+                    <div class="start_menu">
+                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <br>
+                        <h1>Pick a Boo</h1>
+                        <p>Collect 10 gems as fast as you can. But a new one spawns only after you collect the last.</p>
+                        <br>
+                        <button>Continue</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+        `,
+        // Runs once right after this markup is injected into the popup —
+        // same goToSlide logic as index.html's inline <script>, just
+        // scoped to popupEl since innerHTML gives us a fresh DOM each
+        // time the hotspot is entered.
+        init: (popupEl) => {
+            const track = popupEl.querySelector(".start_menu_track");
+            const slides = popupEl.querySelectorAll(".start_menu");
+            const prevBtn = popupEl.querySelector(".slider_buttons .prev");
+            const nextBtn = popupEl.querySelector(".slider_buttons .next");
+
+            let currentIndex = 0;
+            const goToSlide = (index) => {
+                currentIndex = (index + slides.length) % slides.length;
+                track.style.transform = `translateX(-${currentIndex * 100}%)`;
+            };
+
+            prevBtn.addEventListener("click", () => goToSlide(currentIndex - 1));
+            nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
+        },
     },
     Hotspot_2: {
         className: "hotspot-content-2",
@@ -104,14 +203,14 @@ export class HotspotSystem {
     update(ballPosition) {
         if (this.activeHotspot) {
             const dist = ballPosition.distanceTo(this.activeHotspot.position);
-            if (dist > HOTSPOT_TRIGGER_RADIUS) {
+            if (dist > HOTSPOT_EXIT_RADIUS) {
                 this._exit();
             }
         }
 
         if (!this.activeHotspot) {
             for (const hotspot of this.hotspots) {
-                if (ballPosition.distanceTo(hotspot.position) <= HOTSPOT_TRIGGER_RADIUS) {
+                if (ballPosition.distanceTo(hotspot.position) <= HOTSPOT_ENTER_RADIUS) {
                     this._enter(hotspot);
                     break;
                 }
@@ -122,14 +221,11 @@ export class HotspotSystem {
     _enter(hotspot) {
         this.activeHotspot = hotspot;
         this.popupEl.innerHTML = hotspot.content.render();
-        // className overwrites any previous per-hotspot layout class
-        // (including "visible") in one go...
         this.popupEl.className = hotspot.content.className;
-        // ...so force a reflow before re-adding "visible", otherwise the
-        // browser can coalesce both class changes into a single paint and
-        // the CSS fade-in transition never gets a chance to run.
         void this.popupEl.offsetWidth;
         this.popupEl.classList.add("visible");
+
+        if (hotspot.content.init) hotspot.content.init(this.popupEl);
 
         if (this.onEnter) this.onEnter(hotspot);
     }

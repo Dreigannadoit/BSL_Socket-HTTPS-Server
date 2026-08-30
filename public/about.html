@@ -1,15 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <link rel="stylesheet" href="http://localhost:8081/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        rel="stylesheet">
 </head>
-<body>
+
+<body class="about">
     <div class="container">
-        <div class="hero" id="hero">
-            
+        <div class="start_card">
+            <h5>Hello, World!</h5>
+            <br>
+            <h1>Maze-Ball</h1>
+            <p>A Project by Drei</p>
+            <p>Inspired by Netlify's 5 mil+ celebration</p>
+        </div>
+
+        <div class="start_menu_container">
+            <div class="menu_header">
+                <p>Select A Mode</p>
+                <div class="slider_buttons">
+                    <button class="mode_selector_button prev">
+                        <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                        <span>Prev Mode</span>
+                    </button>
+                    <button class="mode_selector_button next">
+                        <span>Next Mode</span>
+                        <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <br>
+
+            <!-- viewport: clips the track -->
+            <div class="start_menu_slider">
+                <!-- track: holds all slides side by side, gets translated -->
+                <div class="start_menu_track">
+
+                    <div class="start_menu">
+                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <br>
+                        <h1>Free Roam</h1>
+                        <p>Explore the maze at your own pace, no objectives.</p>
+                        <br>
+                        <button>Continue</button>
+                    </div>
+                    
+                    <div class="start_menu">
+                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <br>
+                        <h1>Speedrun</h1>
+                        <p>You know what this is.</p>
+                        <p>If not then bruh.</p>
+                        <br>
+                        <button>Continue</button>
+                    </div>
+
+                    <div class="start_menu">
+                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <br>
+                        <h1>Time Trial</h1>
+                        <p>Race against the clock as you try to collect all 20 orbs that spawn randomly on the map.</p>
+                        <br>
+                        <button>Continue</button>
+                    </div>
+
+                    <div class="start_menu">
+                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <br>
+                        <h1>Pick a Boo</h1>
+                        <p>Collect 10 gems as fast as you can. But a new one spawns only after you collect the last.</p>
+                        <br>
+                        <button>Continue</button>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </div>
+    <img src="http://localhost:8081/assets/test.png" alt="">
+
+    <script>
+        const track = document.querySelector('.start_menu_track');
+        const slides = document.querySelectorAll('.start_menu');
+        const prevBtn = document.querySelector('.slider_buttons .prev');
+        const nextBtn = document.querySelector('.slider_buttons .next');
+
+        let currentIndex = 0;
+
+        function goToSlide(index) {
+            // wrap around
+            currentIndex = (index + slides.length) % slides.length;
+            track.style.transform = `translateX(-${currentIndex * 100}%)`;
+        }
+
+        prevBtn.addEventListener('click', () => goToSlide(currentIndex - 1));
+        nextBtn.addEventListener('click', () => goToSlide(currentIndex + 1));
+            </script>
 </body>
+
 </html>
