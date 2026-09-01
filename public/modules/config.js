@@ -201,8 +201,15 @@ export const FOG_START_DEPTH = 5;     // meters below the player where haze begi
 export const FOG_FULL_DEPTH = 20;     // meters below the player where it's fully opaque
 export const FOG_LAYER_COUNT = 16;    // more layers = smoother gradient, at some fill-rate cost
 export const FOG_TOP_OPACITY = 0.05;  // barely-there haze at the start-depth end
+// Capped below 1 so even the deepest fog layer stays slightly see-through —
+// otherwise the bottom layer paints a flat, fully opaque wall that hides
+// the sky dome's golden horizon color entirely instead of hazing over it.
+export const FOG_MAX_OPACITY = 0.82;
 export const FOG_FALLOFF_POWER = 2.2; // >1 keeps the top thin and piles density on fast near the bottom
-export const FOG_COLOR = 0xdfe6ea;
+// Light sky-blue tint (matching the sky's horizon/glow colors in sky.js)
+// instead of a neutral grey, so wherever the fog does overlap the sky it
+// reads as a natural continuation/haze rather than a mismatched wall.
+export const FOG_COLOR = 0xaed7f2;
 export const FOG_PLANE_SIZE = 500;    // wide enough that its edges are never visible on screen
 
 // When false (default), the fog band is anchored once at load — 5m below
@@ -221,7 +228,7 @@ export const GAME_MODE_TIME_TRIAL = "timetrial";
 // duration of the run.
 export const HOTSPOT_1_NAME = "Hotspot_1";
 
-export const TIME_TRIAL_DURATION = 120; // seconds on the Time Trial countdown
+export const TIME_TRIAL_DURATION = 150; // seconds on the Time Trial countdown
 export const TIME_TRIAL_ORB_COUNT = 20; // orbs randomly picked from "Collectables" each run
 export const ORB_COLOR = 0xffcc33;
 export const ORB_MIN_RADIUS = 0.15; // floor so a tiny/degenerate Sphere marker still reads as a pickup
@@ -240,7 +247,7 @@ export const END_RING_COUNT = 3;
 export const END_RING_GAP = 0.15;
 // Seconds for one ring to shrink from its outer spawn radius all the way
 // to the center (and fade out) before a fresh one spawns at the edge.
-export const END_RING_CYCLE_DURATION = 5.2;
+export const END_RING_CYCLE_DURATION = 2.2;
 // Ring thickness as a fraction of its current radius — keeps the ring
 // reading as a consistent line rather than a filled disc as it shrinks.
 export const END_RING_THICKNESS_RATIO = 0.12;

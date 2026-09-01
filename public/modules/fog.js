@@ -4,6 +4,7 @@ import {
     FOG_FULL_DEPTH,
     FOG_LAYER_COUNT,
     FOG_TOP_OPACITY,
+    FOG_MAX_OPACITY,
     FOG_FALLOFF_POWER,
     FOG_COLOR,
     FOG_PLANE_SIZE,
@@ -32,7 +33,7 @@ export class PlayerFog {
 
         for (let i = 0; i < FOG_LAYER_COUNT; i++) {
             const t = i / (FOG_LAYER_COUNT - 1); // 0 at the start depth, 1 at the full-fog depth
-            const opacity = THREE.MathUtils.lerp(FOG_TOP_OPACITY, 1, Math.pow(t, FOG_FALLOFF_POWER));
+            const opacity = THREE.MathUtils.lerp(FOG_TOP_OPACITY, FOG_MAX_OPACITY, Math.pow(t, FOG_FALLOFF_POWER));
 
             const geo = new THREE.PlaneGeometry(FOG_PLANE_SIZE, FOG_PLANE_SIZE);
             const mat = new THREE.MeshBasicMaterial({

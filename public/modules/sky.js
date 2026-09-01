@@ -16,9 +16,9 @@ const SKY_RADIUS = 150;
 
 // Tweak these to taste — swap in cooler/warmer hexes for a different time
 // of day.
-const SKY_TOP_COLOR = 0x3f6fc9;     // saturated blue at the zenith
-const SKY_HORIZON_COLOR = 0xff8a3d; // deep orange near the horizon
-const SKY_GLOW_COLOR = 0xffd98a;    // bright warm glow right at the horizon line, for extra "sunrise" pop
+const SKY_TOP_COLOR = 0x0b1d3a;     // dark, saturated sky blue at the zenith
+const SKY_HORIZON_COLOR = 0x8ecdf5; // light sky blue, most of the lower dome
+const SKY_GLOW_COLOR = 0xd6f1ff;    // near-white pale blue right at the horizon line, for a soft bottom highlight
 
 // CameraController's default offset (CAMERA_OFFSET in config.js) points the
 // camera down at roughly a -45° pitch with a 45° vertical FOV — which means
