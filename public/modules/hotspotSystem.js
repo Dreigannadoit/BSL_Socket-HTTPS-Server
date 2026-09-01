@@ -65,7 +65,7 @@ const HOTSPOT_CONTENT = {
                         <br>
                         <h1>Speedrun</h1>
                         <p>Race from the Start marker to the End marker as fast as you can.</p>
-                        <i><b>(My fastest time was 19.13 seconds)</b></i>
+                        <i><b>(My fastest time was 18.74 seconds)</b></i>
                         <br>
                         
                         <button data-mode="speedrun">Select</button>

@@ -12,6 +12,7 @@ import {
     ORB_MIN_RADIUS,
     TRIGGER_EXPAND,
 } from "./config.js";
+import { EndTriggerEffect } from "./endTriggerEffect.js";
 
 const MODE_LABELS = {
     [GAME_MODE_FREE_ROAM]: "Free Roam",
@@ -53,10 +54,19 @@ export class GameModeManager {
         this.endTriggerMesh = null;
         this.startBounds = null; // THREE.Box3, world space, expanded by ball radius
         this.endBounds = null;
-        this.startTriggerBody = null; // solid CANNON body — present in the world only while mode === null
+        this.startTriggerBody = null; // solid CANNON body — present in the world only while mode === null (or, in a timed mode, once the run has started — see _pendingStartLock)
         this.startTriggerBlocking = false;
         this.insideStart = false; // hysteresis so touching a trigger fires once, on the edge
         this.insideEnd = false;
+        // Set once a timed-mode run starts (never in Free Roam): waits for
+        // the ball to fully clear StartTrigger's bounds before re-adding
+        // its solid collider, so the player can't roll back through the
+        // start line mid-run. Deferred rather than done immediately in
+        // _onStartTouched() to avoid re-solidifying a collider the ball is
+        // still overlapping (which physics would resolve by shoving it).
+        this._pendingStartLock = false;
+
+        this.endEffect = new EndTriggerEffect();
 
         this.collectableCandidates = []; // { center: Vector3, radius } — all ~124, inventoried once
         this.activeOrbs = []; // { mesh, center, radius } — the 20 live picks for the current Time Trial run
@@ -91,10 +101,13 @@ export class GameModeManager {
         }
 
         if (this.endTriggerMesh) {
-            this.endTriggerMesh.visible = false;
             this.endBounds = new THREE.Box3()
                 .setFromObject(this.endTriggerMesh)
                 .expandByScalar(BALL_RADIUS + TRIGGER_EXPAND);
+            // Glow core + pulsating rings + finish-column wall — see
+            // endTriggerEffect.js. This also makes endTriggerMesh visible
+            // (it used to stay hidden) and swaps in its glow material.
+            this.endEffect.setup(this.endTriggerMesh, this.scene);
         } else {
             console.warn('GameModeManager: no "EndTrigger" node found — game modes are disabled.');
         }
@@ -150,6 +163,10 @@ export class GameModeManager {
 
     // Every frame from the main loop.
     update(dt, ballPosition, elapsed) {
+        // EndTrigger's glow/rings/wall animate regardless of game mode —
+        // it's a standing decorative fixture, not run-state.
+        this.endEffect.update(elapsed);
+
         // Orbs keep a gentle breathing pulse regardless of anything else,
         // same style as GlowPath/HotspotSystem's glow.
         if (this.activeOrbs.length > 0) {
@@ -160,6 +177,7 @@ export class GameModeManager {
         if (this.mode === null) return;
 
         this._checkStartTrigger(ballPosition);
+        this._checkStartLockout(ballPosition);
         this._checkEndTrigger(ballPosition);
 
         if (this.mode === GAME_MODE_SPEEDRUN && this.runStarted) {
@@ -187,9 +205,33 @@ export class GameModeManager {
         this.insideStart = inside;
     }
 
+    // Re-solidifies StartTrigger once the ball has fully rolled clear of
+    // it after a timed-mode run has begun (see _onStartTouched). No-op
+    // once done, and never runs at all in Free Roam.
+    _checkStartLockout(ballPosition) {
+        if (!this._pendingStartLock || !this.startBounds || !this.startTriggerBody) return;
+        const inside = this.startBounds.containsPoint(ballPosition);
+        if (!inside) {
+            this.world.addBody(this.startTriggerBody);
+            this.startTriggerBlocking = true;
+            this._pendingStartLock = false;
+        }
+    }
+
     _onStartTouched() {
         this.runStarted = true;
         this.audioManager.playHotspotSound(0.5);
+
+        // In any timed mode (never Free Roam, where free movement in both
+        // directions is the point), the player shouldn't be able to roll
+        // back through the start line mid-run. Deferred to
+        // _checkStartLockout() rather than done here — the ball is still
+        // physically overlapping StartTrigger's bounds at this exact
+        // instant, and re-adding a solid collider under it now would let
+        // physics resolve that overlap by shoving the ball.
+        if (this.mode !== GAME_MODE_FREE_ROAM) {
+            this._pendingStartLock = true;
+        }
 
         if (this.mode === GAME_MODE_SPEEDRUN) {
             this.speedrunElapsed = 0;
@@ -312,6 +354,7 @@ export class GameModeManager {
         this.timeTrialRemaining = TIME_TRIAL_DURATION;
         this.insideStart = false;
         this.insideEnd = false;
+        this._pendingStartLock = false;
         this._failing = false;
     }
 

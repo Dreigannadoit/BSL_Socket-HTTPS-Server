@@ -43,13 +43,25 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playe
 
             let colliderCount = 0;
             if (collisionRoot) {
+                // Meshes under this subtree still get colliders (so they
+                // block the ball), but stay hidden — used for out-of-bounds
+                // guard rails etc. that shouldn't render.
+                const invisibleWallsRoot = collisionRoot.getObjectByName("InvisibleWalls");
+                const isUnderInvisibleWalls = (obj) => {
+                    if (!invisibleWallsRoot) return false;
+                    for (let n = obj; n; n = n.parent) {
+                        if (n === invisibleWallsRoot) return true;
+                    }
+                    return false;
+                };
+
                 collisionRoot.traverse((child) => {
                     if (child.isMesh && child.geometry) {
                         addTrimeshCollider(child);
                         colliderCount++;
                         child.castShadow = true;
                         child.receiveShadow = true;
-                        child.visible = true;
+                        child.visible = !isUnderInvisibleWalls(child);
 
                         // Preserve original textures/maps, just upgrade the
                         // material properties.

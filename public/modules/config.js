@@ -84,9 +84,9 @@ export const SLIDE_MAX_SPEED = MAX_SPEED; // cap for how fast sliding can get
 // much lower speed, and the drift itself is held noticeably longer before
 // the new direction takes over. Paired with the camera lean in
 // CameraController.
-export const REVERSAL_SKID_DURATION = 0.74;   // seconds the skid blend lasts
+export const REVERSAL_SKID_DURATION = 1.4;   // seconds the skid blend lasts
 export const REVERSAL_DOT_THRESHOLD = -0.15; // triggers on sharp turns, not just near-full reversals
-export const REVERSAL_MIN_SPEED = 1.0;       // skids can kick in at lower speeds too
+export const REVERSAL_MIN_SPEED = 1.2;       // skids can kick in at lower speeds too
 
 // ── Camera / skid feedback ──
 export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
@@ -231,3 +231,20 @@ export const ORB_MIN_RADIUS = 0.15; // floor so a tiny/degenerate Sphere marker 
 // ball reliably registers the trigger instead of possibly skipping past it
 // between two physics steps.
 export const TRIGGER_EXPAND = 0.05;
+
+// ── EndTrigger pulsating-ring + finish-column effect ──
+export const END_RING_COUNT = 3;
+// Gap (meters) between the EndTrigger's own edge and the first ring, and
+// between each subsequent ring — so the resting/spawn arrangement is
+// object -> +0.15 -> +0.15 -> +0.15.
+export const END_RING_GAP = 0.15;
+// Seconds for one ring to shrink from its outer spawn radius all the way
+// to the center (and fade out) before a fresh one spawns at the edge.
+export const END_RING_CYCLE_DURATION = 2.2;
+// Ring thickness as a fraction of its current radius — keeps the ring
+// reading as a consistent line rather than a filled disc as it shrinks.
+export const END_RING_THICKNESS_RATIO = 0.12;
+export const END_RING_BASE_OPACITY = 0.85;
+// Tall neon "finish column" wall standing on the EndTrigger's footprint.
+export const END_WALL_HEIGHT = 30;
+export const END_WALL_OPACITY = 0.35;
