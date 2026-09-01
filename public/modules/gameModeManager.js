@@ -150,7 +150,7 @@ export class GameModeManager {
         this.mode = mode;
         this.runStarted = false;
         this.ui.setMode(mode);
-        this.ui.flashMessage(`${MODE_LABELS[mode]} selected — head to the Start marker!`);
+        this.ui.flashMessage(`${MODE_LABELS[mode]} selected. Pass through the arch opening to begin`);
 
         // StartTrigger becomes passable the moment a mode is chosen.
         if (this.startTriggerBlocking) {

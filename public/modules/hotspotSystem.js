@@ -52,10 +52,10 @@ const HOTSPOT_CONTENT = {
                 <div class="start_menu_track">
 
                     <div class="start_menu">
-                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <img src="http://localhost:8081/assets/FreeRoam.png" alt="">
                         <br>
                         <h1>Free Roam</h1>
-                        <p>Explore the maze at your own pace, no objectives. Every hotspot stays open.</p>
+                        <p>Explore the map at your own pace and look at how the development process of the project went. No objectives. </p>
                         <br>
                         <button data-mode="freeroam">Select</button>
                     </div>
@@ -67,11 +67,11 @@ const HOTSPOT_CONTENT = {
                             muted
                             loop
                             playsinline
-                            style="width: 100%; object-fit: cover;"
+                            style="width: 100%; height: 55%; object-fit: cover;"
                             ></video>
                         <br>
                         <h1>Speedrun</h1>
-                        <p>Race from the Start marker to the End marker as fast as you can.</p>
+                        <p>Race from the gate to the End marker as fast as you can.</p>
                         <i><b>(My fastest time was 18.74 seconds)</b></i>
                         <br>
                         
@@ -85,14 +85,45 @@ const HOTSPOT_CONTENT = {
                             muted
                             loop
                             playsinline
-                            style="width: 100%; object-fit: cover;"
+                            style="width: 100%; height: 55%; object-fit: cover;"
                             ></video>
-                        <br>
                         <br>
                         <h1>Collection Time Trial</h1>
                         <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute and 30-second clock runs out.</p>
                         <br>
                         <button data-mode="timetrial">Select</button>
+                    </div>
+
+                    <div class="start_menu coming_soon">
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <p><b>Coming Soon</b></p>
+                        <h1>Spawn Chase</h1>
+                        <p>Find and collect all 10 orbs as quickly as possible—one at a time within 6 minutes. Each orb only appears after the last has been captured, so stay alert and keep moving.</p>
+                    </div>
+
+                    <div class="start_menu coming_soon">
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <p><b>Coming Soon</b></p>
+                        <h1>Collect Them all</h1>
+                        <p>There are 100+ orbs scatered across the map. Find them and collect them all as fas as you can. The faste the more point you earn.</p>
                     </div>
 
                 </div>

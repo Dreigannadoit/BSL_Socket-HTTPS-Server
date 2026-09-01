@@ -89,8 +89,8 @@ export const REVERSAL_DOT_THRESHOLD = -0.15; // triggers on sharp turns, not jus
 export const REVERSAL_MIN_SPEED = 1.2;       // skids can kick in at lower speeds too
 
 // ── Camera / skid feedback ──
-// export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
-export const CAMERA_OFFSET = { x: 16.2, y: 35, z: 16.2 };
+export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
+// export const CAMERA_OFFSET = { x: 16.2, y: 35, z: 16.2 };
 export const SKID_CAMERA_ROLL = 0.045;        // radians of camera roll at full skid intensity
 export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead of snapping
 
