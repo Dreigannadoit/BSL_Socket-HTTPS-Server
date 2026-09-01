@@ -37,7 +37,7 @@ export class GameModeUI {
             ${chipBase}
             position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 20;
             font-size: 13px; opacity: 0.9; letter-spacing: 0.04em; text-transform: uppercase;
-            min-width: 150px;
+            min-width: 150px; border-radius: 90px;
         `;
 
         this.statLine = document.createElement("div");
@@ -45,15 +45,15 @@ export class GameModeUI {
             ${chipBase}
             position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 20; opacity: 0.9;
             font-size: 18px; font-weight: 600; display: none;
-            min-width: 150px;
+            min-width: 150px; border-radius: 90px;
         `;
 
         this.flashLine = document.createElement("div");
         this.flashLine.style.cssText = `
             ${chipBase}
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20;
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20; 
             font-size: 18px; font-weight: 600; color: #030303; min-height: 16px;
-            opacity: 0; transition: opacity 0.4s ease;
+            opacity: 0; transition: opacity 0.4s ease; border-radius: 90px; padding: 10px 15px;
         `;
 
         document.body.appendChild(this.modeLabel);
