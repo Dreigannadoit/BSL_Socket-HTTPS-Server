@@ -99,6 +99,7 @@ const gameModeManager = new GameModeManager({
     hotspotSystem,
     audioManager,
     ui: gameModeUI,
+    glowPath,
 });
 
 // ── Level ──

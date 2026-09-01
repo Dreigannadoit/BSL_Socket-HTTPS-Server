@@ -170,6 +170,10 @@ export const WORLD_METALNESS = 0;
 export const WORLD_CLEARCOAT = 0.15;
 export const WORLD_CLEARCOAT_ROUGHNESS = 0.45;
 export const GLOW_COLOR = 0x33ccff;
+// Neon-red variant swapped in for GlowPath/EndTrigger while a Collection
+// Time Trial run is short on orbs (see GameModeManager._updateGlowColor) —
+// reverts to GLOW_COLOR once all TIME_TRIAL_ORB_COUNT orbs are collected.
+export const GLOW_COLOR_ALERT = 0xff2a3d;
 export const BLOOM_LAYER = 1;
 
 // ── Hotspot environment grayscale ──

@@ -11,13 +11,15 @@ import {
     ORB_COLOR,
     ORB_MIN_RADIUS,
     TRIGGER_EXPAND,
+    GLOW_COLOR,
+    GLOW_COLOR_ALERT,
 } from "./config.js";
 import { EndTriggerEffect } from "./endTriggerEffect.js";
 
 const MODE_LABELS = {
     [GAME_MODE_FREE_ROAM]: "Free Roam",
     [GAME_MODE_SPEEDRUN]: "Speedrun",
-    [GAME_MODE_TIME_TRIAL]: "Time Trial",
+    [GAME_MODE_TIME_TRIAL]: "Collection Time Trial",
 };
 
 // Owns the three selectable game modes and everything that bookends a
@@ -36,7 +38,7 @@ const MODE_LABELS = {
 // HOTSPOT_CONTENT) — selectMode()/getMode() are what that popup's buttons
 // call into.
 export class GameModeManager {
-    constructor({ scene, world, addTrimeshCollider, ballBody, player, respawnSystem, hotspotSystem, audioManager, ui }) {
+    constructor({ scene, world, addTrimeshCollider, ballBody, player, respawnSystem, hotspotSystem, audioManager, ui, glowPath }) {
         this.scene = scene;
         this.world = world;
         this.addTrimeshCollider = addTrimeshCollider;
@@ -46,6 +48,7 @@ export class GameModeManager {
         this.hotspotSystem = hotspotSystem;
         this.audioManager = audioManager;
         this.ui = ui;
+        this.glowPath = glowPath; // for the red/blue orb-shortfall glow swap (see _updateGlowColor)
 
         this.mode = null; // null | "freeroam" | "speedrun" | "timetrial"
         this.runStarted = false; // has the ball touched StartTrigger yet, for the current mode
@@ -72,6 +75,7 @@ export class GameModeManager {
         this.activeOrbs = []; // { mesh, center, radius } — the 20 live picks for the current Time Trial run
         this.orbsCollected = 0;
         this._failing = false; // guards against _failTimeTrial firing more than once per run
+        this._runEnded = false; // true from the moment a Time Trial run succeeds or fails — freezes the countdown/orb checks in place
 
         this.speedrunElapsed = 0;
         this.timeTrialRemaining = TIME_TRIAL_DURATION;
@@ -185,7 +189,11 @@ export class GameModeManager {
             this.ui.setTimer(this._formatTime(this.speedrunElapsed));
         }
 
-        if (this.mode === GAME_MODE_TIME_TRIAL && this.runStarted) {
+        // _runEnded gates all of this off the instant the run is decided
+        // (EndTrigger hit or clock hitting zero) — otherwise the countdown
+        // kept ticking (and orb pickups kept being checked) on every frame
+        // after the popup was already up, right up until _exitToSpawn().
+        if (this.mode === GAME_MODE_TIME_TRIAL && this.runStarted && !this._runEnded) {
             this.timeTrialRemaining -= dt;
             this.ui.setTimer(this._formatTime(Math.max(0, this.timeTrialRemaining)));
             this._checkOrbPickups(ballPosition);
@@ -244,6 +252,8 @@ export class GameModeManager {
             this.ui.setOrbCount(this.orbsCollected, TIME_TRIAL_ORB_COUNT);
             this.ui.setTimer(this._formatTime(this.timeTrialRemaining));
             this.ui.flashMessage(`GO! Collect all ${TIME_TRIAL_ORB_COUNT} orbs!`);
+            this.ui.showToast("Find all the orbs");
+            this._updateGlowColor();
         }
     }
 
@@ -299,23 +309,53 @@ export class GameModeManager {
     }
 
     _completeTimeTrial() {
+        this._runEnded = true; // stop the countdown/orb-pickup checks the instant EndTrigger is hit
         this.player.setFrozen(true);
         this.audioManager.playHotspotSound(0.6);
-        const finalTime = this._formatTime(TIME_TRIAL_DURATION - Math.max(0, this.timeTrialRemaining));
+
+        // this.timeTrialRemaining hasn't been decremented yet this frame
+        // (_checkEndTrigger runs before the countdown block in update()),
+        // so it's exactly the remaining time at the moment of completion.
+        const remaining = Math.max(0, this.timeTrialRemaining);
+        const finalTime = this._formatTime(TIME_TRIAL_DURATION - remaining);
+        const resultLine = this._getTimeTrialSuccessMessage(remaining);
+
         this.ui.showPopup({
-            title: "Time Trial Complete!",
-            message: `All ${TIME_TRIAL_ORB_COUNT} orbs collected in ${finalTime}`,
+            title: "Collection Time Trial Complete!",
+            message: `${resultLine}\nTime: ${finalTime}`,
             buttons: [{ label: "Continue", onClick: () => { this.ui.hidePopup(); this._exitToSpawn(); } }],
         });
+    }
+
+    // Seconds-remaining-on-the-clock thresholds -> flavor line for a
+    // successful (all orbs + EndTrigger reached in time) Collection Time
+    // Trial finish. Ranges are inclusive of their upper bound.
+    _getTimeTrialSuccessMessage(remaining) {
+        if (remaining <= 5) return "Ain't no way. Congratulations!!!!";
+        if (remaining <= 10) return "Too close for comfort there, bud. Still congrats.";
+        if (remaining <= 20) return "Congratulations! Took you long enough.";
+        if (remaining <= 90) return "Congratulations! ";
+        if (remaining <= 100) return "Congratulations. That was fast";
+        if (remaining <= 120) return "Ayo Chill";
+        return "How the hell is that even possible??";
     }
 
     _failTimeTrial() {
         if (this._failing) return; // remaining stays <= 0 across several frames — only fire once
         this._failing = true;
+        this._runEnded = true;
         this.player.setFrozen(true);
+
+        // Insufficient orbs takes priority in the message even though both
+        // cases are "ran out of time" — an incomplete orb count is the more
+        // specific/actionable reason the run failed.
+        const message = this.orbsCollected < TIME_TRIAL_ORB_COUNT
+            ? "Didn't collect all the orbs."
+            : "Ran out of time.";
+
         this.ui.showPopup({
-            title: "Time's Up!",
-            message: `You collected ${this.orbsCollected}/${TIME_TRIAL_ORB_COUNT} orbs.`,
+            title: "Task Failed.",
+            message,
             buttons: [{ label: "Continue", onClick: () => { this.ui.hidePopup(); this._exitToSpawn(); } }],
         });
     }
@@ -356,6 +396,26 @@ export class GameModeManager {
         this.insideEnd = false;
         this._pendingStartLock = false;
         this._failing = false;
+        this._runEnded = false;
+
+        // Always the default blue here (not routed through
+        // _updateGlowColor()'s mode/orbsCollected check) — this runs
+        // whenever a run is being torn down/reset, so there's no "current
+        // run" left to be short on orbs.
+        if (this.glowPath) {
+            this.glowPath.setColor(GLOW_COLOR);
+            this.endEffect.setColor(GLOW_COLOR);
+        }
+    }
+
+    // Red while an active Collection Time Trial run is short on orbs,
+    // default neon blue otherwise (other modes, no mode, or all orbs in).
+    _updateGlowColor() {
+        if (!this.glowPath) return;
+        const short = this.mode === GAME_MODE_TIME_TRIAL && this.runStarted && this.orbsCollected < TIME_TRIAL_ORB_COUNT;
+        const color = short ? GLOW_COLOR_ALERT : GLOW_COLOR;
+        this.glowPath.setColor(color);
+        this.endEffect.setColor(color);
     }
 
     // Fisher–Yates partial shuffle to pull TIME_TRIAL_ORB_COUNT random,
@@ -403,6 +463,11 @@ export class GameModeManager {
                 this.orbsCollected++;
                 this.ui.setOrbCount(this.orbsCollected, TIME_TRIAL_ORB_COUNT);
                 this.audioManager.playHotspotSound(0.35);
+                this._updateGlowColor();
+
+                if (this.orbsCollected === TIME_TRIAL_ORB_COUNT) {
+                    this.ui.showToast("Follow the path to the End Marker quickly");
+                }
             }
         }
     }

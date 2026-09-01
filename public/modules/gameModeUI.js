@@ -1,7 +1,7 @@
 const MODE_LABELS = {
     freeroam: "Free Roam",
     speedrun: "Speedrun",
-    timetrial: "Time Trial",
+    timetrial: "Collection Time Trial",
 };
 
 // A small, self-contained HUD overlay for the three selectable game modes:
@@ -19,6 +19,7 @@ export class GameModeUI {
         this._orbText = "";
         this._buildBadge();
         this._buildPopup();
+        this._buildToast();
     }
 
     _buildBadge() {
@@ -71,7 +72,12 @@ export class GameModeUI {
         this.popupTitle.style.cssText = "margin: 0 0 8px; font-size: 22px;";
 
         this.popupMessage = document.createElement("p");
-        this.popupMessage.style.cssText = "margin: 0 0 20px; opacity: 0.85; font-size: 15px; line-height: 1.4;";
+        // white-space: pre-line lets showPopup() callers put the result
+        // (e.g. "How the hell is that even possible??") on one line and
+        // the completed time on the next via a plain "\n", without needing
+        // to reach for innerHTML/<br>.
+        this.popupMessage.style.cssText =
+            "margin: 0 0 20px; opacity: 0.85; font-size: 15px; line-height: 1.4; white-space: pre-line;";
 
         this.popupButtons = document.createElement("div");
         this.popupButtons.style.cssText = "display: flex; gap: 10px; justify-content: center;";
@@ -82,6 +88,38 @@ export class GameModeUI {
         overlay.appendChild(card);
         document.body.appendChild(overlay);
         this.popupOverlay = overlay;
+    }
+
+    // A separate, transient bottom-middle banner — distinct from the
+    // top-right badge's flashMessage() — used for the two Collection Time
+    // Trial objective callouts ("Find all the orbs" / "Follow the path to
+    // the End Marker quickly").
+    _buildToast() {
+        const toast = document.createElement("div");
+        toast.style.cssText = `
+            position: fixed; left: 50%; bottom: 48px; z-index: 25;
+            transform: translate(-50%, 12px);
+            font-family: 'Plus Jakarta Sans', sans-serif; color: #fff;
+            background: rgba(10, 14, 20, 0.75); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 999px; padding: 10px 22px; font-size: 15px; font-weight: 600;
+            text-align: center; pointer-events: none; opacity: 0;
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        `;
+        document.body.appendChild(toast);
+        this.toast = toast;
+    }
+
+    // text: message to show. duration: ms before it fades back out
+    // (defaults to 2600ms).
+    showToast(text, duration = 2600) {
+        this.toast.textContent = text;
+        this.toast.style.opacity = "1";
+        this.toast.style.transform = "translate(-50%, 0)";
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => {
+            this.toast.style.opacity = "0";
+            this.toast.style.transform = "translate(-50%, 12px)";
+        }, duration);
     }
 
     // mode: null | "freeroam" | "speedrun" | "timetrial" — the persistent

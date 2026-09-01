@@ -140,6 +140,25 @@ export class EndTriggerEffect {
         scene.add(this.wallMesh);
     }
 
+    // Swaps the core, all three rings, and the finish-column wall over to
+    // `color` — used by GameModeManager to flip EndTrigger red while a
+    // Collection Time Trial run is short on orbs, and back to GLOW_COLOR
+    // once all orbs are collected.
+    setColor(color) {
+        if (this.coreMaterial) {
+            this.coreMaterial.color.set(color);
+            this.coreMaterial.emissive.set(color);
+        }
+        for (const ring of this.rings) {
+            ring.mesh.material.color.set(color);
+            ring.mesh.material.emissive.set(color);
+        }
+        if (this.wallMesh) {
+            this.wallMesh.material.color.set(color);
+            this.wallMesh.material.emissive.set(color);
+        }
+    }
+
     // Called every frame once setup() has run (levelLoader may still be
     // mid-load on earlier frames, hence the rings-length guard).
     update(elapsed) {

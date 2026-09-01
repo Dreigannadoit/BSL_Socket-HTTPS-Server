@@ -86,6 +86,22 @@ export class GlowPath {
         }
     }
 
+    // Swaps every glow material's color/emissive (core meshes, plus the
+    // Fresnel shells' glowColor uniform, in case any are ever added here)
+    // to `color` — used by GameModeManager to flip the path red while a
+    // Collection Time Trial run is short on orbs, and back to GLOW_COLOR
+    // once all orbs are in.
+    setColor(color) {
+        for (const { mat, role } of this.glowMaterials) {
+            if (role === "core") {
+                mat.color.set(color);
+                mat.emissive.set(color);
+            } else {
+                mat.uniforms.glowColor.value.set(color);
+            }
+        }
+    }
+
     // Gentle breathing pulse so the path doesn't sit static — noticeable
     // but not strobing. Each layer/role pulses over a different range so
     // the glow feels like it has depth rather than just uniformly

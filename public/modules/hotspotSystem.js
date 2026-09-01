@@ -74,8 +74,8 @@ const HOTSPOT_CONTENT = {
                     <div class="start_menu">
                         <img src="http://localhost:8081/assets/test.png" alt="">
                         <br>
-                        <h1>Time Trial</h1>
-                        <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute clock runs out. Every other hotspot is hidden until you finish.</p>
+                        <h1>Collection Time Trial</h1>
+                        <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute and 30-second clock runs out.</p>
                         <br>
                         <button data-mode="timetrial">Select</button>
                     </div>
@@ -99,7 +99,7 @@ const HOTSPOT_CONTENT = {
             const nextBtn = popupEl.querySelector(".slider_buttons .next");
             const currentModeLabel = popupEl.querySelector("#current-mode-label");
 
-            const MODE_NAMES = { freeroam: "Free Roam", speedrun: "Speedrun", timetrial: "Time Trial" };
+            const MODE_NAMES = { freeroam: "Free Roam", speedrun: "Speedrun", timetrial: "Collection Time Trial" };
             if (currentModeLabel) {
                 const current = context.getCurrentMode ? context.getCurrentMode() : null;
                 currentModeLabel.textContent = current
