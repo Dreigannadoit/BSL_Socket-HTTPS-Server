@@ -9,6 +9,7 @@ import {
     END_RING_BASE_OPACITY,
     END_WALL_HEIGHT,
     END_WALL_OPACITY,
+    END_WALL_EMISSIVE_INTENSITY,
 } from "./config.js";
 
 // Decorative-only (no physics) finish-line effect built around EndTrigger:
@@ -25,10 +26,15 @@ import {
 //    +0.15).
 //  - A tall, mostly-transparent neon-blue cylinder wall — matching
 //    EndTrigger's own circular footprint — marks the finish column from
-//    the trigger's base up to END_WALL_HEIGHT meters.
+//    the trigger's base up to END_WALL_HEIGHT meters. It carries a slight
+//    bloom (emissive intensity just above the bloom threshold, low
+//    opacity) so it reads as a faint glowing boundary rather than
+//    competing with the ring animation for attention.
 //
-// All three pieces are flagged onto BLOOM_LAYER so BloomRenderer's
-// selective bloom pass picks them up exactly like GlowPath's meshes.
+// The core, rings, AND wall are all flagged onto BLOOM_LAYER so
+// BloomRenderer's selective bloom pass picks them up like GlowPath's
+// meshes - the wall's glow is just much subtler due to its low
+// emissive intensity/opacity.
 export class EndTriggerEffect {
     constructor() {
         this.rings = []; // { mesh, phaseOffset }
@@ -109,9 +115,15 @@ export class EndTriggerEffect {
             true
         );
         const wallMat = new THREE.MeshStandardMaterial({
+            // Back to an emissive material (unlike the plain MeshBasicMaterial
+            // used earlier) so BLOOM_LAYER can pick it up - but intensity is
+            // kept only just above the bloom pass's threshold (see
+            // END_WALL_EMISSIVE_INTENSITY in config.js) plus a low opacity,
+            // so the glow reads as slight/faint rather than matching the
+            // core/rings' full bloom strength.
             color: GLOW_COLOR,
             emissive: GLOW_COLOR,
-            emissiveIntensity: 1.2,
+            emissiveIntensity: END_WALL_EMISSIVE_INTENSITY,
             roughness: 0.3,
             metalness: 0,
             transparent: true,
@@ -122,6 +134,8 @@ export class EndTriggerEffect {
         });
         this.wallMesh = new THREE.Mesh(wallGeo, wallMat);
         this.wallMesh.position.set(this.center.x, this.baseY + END_WALL_HEIGHT / 2, this.center.z);
+        // Slight bloom: enabled on BLOOM_LAYER same as the core/rings, but
+        // its low emissiveIntensity + opacity keep the resulting glow subtle.
         this.wallMesh.layers.enable(BLOOM_LAYER);
         scene.add(this.wallMesh);
     }
@@ -140,19 +154,26 @@ export class EndTriggerEffect {
         }
 
         const outerRadius = this.baseRadius + END_RING_GAP * END_RING_COUNT;
+        // Floor so a ring never shrinks to an exact zero-size/zero-opacity
+        // scale — keeps all END_RING_COUNT rings genuinely on screen (just
+        // faint/tiny) at every instant instead of blinking out for a frame
+        // right as the cycle wraps and the next ring takes over.
+        const MIN_VISIBLE_FRACTION = 0.02;
 
         for (const ring of this.rings) {
             // t: 0 = just spawned at outerRadius/full opacity, 1 = fully
-            // collapsed to the center/faded to invisible. Modulo makes
+            // collapsed to the center/faded to near-invisible. Modulo makes
             // each ring loop forever; the phaseOffset staggers the three
-            // so a new one is always taking over as another vanishes.
+            // so a new one is always taking over as another vanishes -
+            // guaranteeing 3 rings are present at all times.
             const t = ((elapsed / END_RING_CYCLE_DURATION) + ring.phaseOffset) % 1;
-            const radius = outerRadius * (1 - t);
-            const opacity = END_RING_BASE_OPACITY * (1 - t);
+            const remaining = Math.max(1 - t, MIN_VISIBLE_FRACTION);
+            const radius = outerRadius * remaining;
+            const opacity = END_RING_BASE_OPACITY * remaining;
 
             ring.mesh.scale.set(radius, radius, 1);
             ring.mesh.material.opacity = opacity;
-            ring.mesh.visible = radius > 0.01;
+            ring.mesh.visible = true;
         }
     }
 }

@@ -240,11 +240,17 @@ export const END_RING_COUNT = 3;
 export const END_RING_GAP = 0.15;
 // Seconds for one ring to shrink from its outer spawn radius all the way
 // to the center (and fade out) before a fresh one spawns at the edge.
-export const END_RING_CYCLE_DURATION = 2.2;
+export const END_RING_CYCLE_DURATION = 5.2;
 // Ring thickness as a fraction of its current radius — keeps the ring
 // reading as a consistent line rather than a filled disc as it shrinks.
 export const END_RING_THICKNESS_RATIO = 0.12;
 export const END_RING_BASE_OPACITY = 0.85;
 // Tall neon "finish column" wall standing on the EndTrigger's footprint.
-export const END_WALL_HEIGHT = 30;
-export const END_WALL_OPACITY = 0.35;
+// Kept dimmer/more transparent than the core + rings on purpose, so the
+// wall reads as a faint boundary marker rather than competing with the
+// pulsating-ring effect for attention. Its emissive intensity is set just
+// above BloomRenderer's UnrealBloomPass threshold (1.0) so it picks up a
+// slight bloom glow without overpowering the core/rings.
+export const END_WALL_HEIGHT = 80;
+export const END_WALL_OPACITY = 0.1;
+export const END_WALL_EMISSIVE_INTENSITY = 1.1;
