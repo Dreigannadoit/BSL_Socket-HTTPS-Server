@@ -18,7 +18,7 @@ export const SOUND_FILES = {
 export const BALL_RADIUS = 0.35;
 
 // ── Movement ──
-export const MAX_SPEED = 7.3;
+export const MAX_SPEED = 7.3; // Free Roam / default
 export const ACCEL = 15;
 export const DECEL_RATE = 1.5;
 // Lower = smoother/slower direction changes while moving. Decoupled from
@@ -76,7 +76,9 @@ export function getStartHoldMs(speedFraction) {
 
 // ── Slope sliding ──
 export const SLIDE_MIN_SLOPE = 0.08;    // radians — below this, treat as "flat" and just decelerate
-export const SLIDE_MAX_SPEED = MAX_SPEED; // cap for how fast sliding can get
+// Slope-sliding speed cap now just mirrors PlayerController's live
+// this.maxSpeed (which changes per game mode) rather than a fixed
+// constant — see PlayerController.setMaxSpeed().
 
 // ── Reversal skid ──
 // Made deliberately aggressive so skidding is a headline part of the feel:
@@ -227,6 +229,17 @@ export const isFogFollowPlayer = false;
 export const GAME_MODE_FREE_ROAM = "freeroam";
 export const GAME_MODE_SPEEDRUN = "speedrun";
 export const GAME_MODE_TIME_TRIAL = "timetrial";
+
+// ── Per-mode max speed ──
+export const MAX_SPEED_SPEEDRUN = 11.2;
+export const MAX_SPEED_TIME_TRIAL = 8.6;
+// Looked up by GameModeManager.selectMode() to push the right cap into
+// PlayerController/AudioManager whenever the player picks a mode.
+export const MAX_SPEED_BY_MODE = {
+    [GAME_MODE_FREE_ROAM]: MAX_SPEED,
+    [GAME_MODE_SPEEDRUN]: MAX_SPEED_SPEEDRUN,
+    [GAME_MODE_TIME_TRIAL]: MAX_SPEED_TIME_TRIAL,
+};
 
 // The one hotspot that stays interactable (it doubles as the mode-select
 // menu) while Speedrun/Time Trial hide every other hotspot for the

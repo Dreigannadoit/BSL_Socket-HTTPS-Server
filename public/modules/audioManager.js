@@ -24,6 +24,14 @@ export class AudioManager {
         this.engineGain = null;
         this.rollingGain = null;
 
+        // Current mode's speed cap, used to normalize speed into a 0-1
+        // ratio for engine/rolling gain below. Defaults to Free Roam's
+        // MAX_SPEED and is kept in sync with PlayerController's own cap by
+        // GameModeManager.selectMode() via setMaxSpeed() — otherwise a
+        // faster mode like Speedrun would hit "full engine volume" long
+        // before actually reaching its higher top speed.
+        this.maxSpeed = MAX_SPEED;
+
         // Browsers block audio until a user gesture — unlock on first input.
         this._unlockAudio = this._unlockAudio.bind(this);
         window.addEventListener("keydown", this._unlockAudio);
@@ -87,11 +95,18 @@ export class AudioManager {
         this._playOneShot("hotspot", volume);
     }
 
+    // Called by GameModeManager.selectMode() alongside
+    // PlayerController.setMaxSpeed() so engine/rolling volume ramps stay
+    // matched to whichever mode's top speed is currently active.
+    setMaxSpeed(maxSpeed) {
+        this.maxSpeed = maxSpeed;
+    }
+
     // Smoothly blends the looping engine/rolling gains each frame based on
     // ball speed and whether the player is actively steering.
     update(dt, ballBody, keys) {
         const speed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
-        const speedRatio = THREE.MathUtils.clamp(speed / MAX_SPEED, 0, 1);
+        const speedRatio = THREE.MathUtils.clamp(speed / this.maxSpeed, 0, 1);
         const isControlling = keys.forward || keys.back || keys.left || keys.right;
 
         // Engine: only while the player is actively steering, faint -> loud

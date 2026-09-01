@@ -5,6 +5,7 @@ import {
     GAME_MODE_FREE_ROAM,
     GAME_MODE_SPEEDRUN,
     GAME_MODE_TIME_TRIAL,
+    MAX_SPEED_BY_MODE,
     HOTSPOT_1_NAME,
     TIME_TRIAL_DURATION,
     TIME_TRIAL_ORB_COUNT,
@@ -149,6 +150,8 @@ export class GameModeManager {
         this._resetRunState();
         this.mode = mode;
         this.runStarted = false;
+        this.player.setMaxSpeed(MAX_SPEED_BY_MODE[mode]);
+        this.audioManager.setMaxSpeed(MAX_SPEED_BY_MODE[mode]);
         this.ui.setMode(mode);
         this.ui.flashMessage(`${MODE_LABELS[mode]} selected. Pass through the arch opening to begin`);
 
@@ -366,6 +369,8 @@ export class GameModeManager {
         this._resetRunState();
         this.mode = null;
         this.runStarted = false;
+        this.player.setMaxSpeed(MAX_SPEED_BY_MODE[GAME_MODE_FREE_ROAM]);
+        this.audioManager.setMaxSpeed(MAX_SPEED_BY_MODE[GAME_MODE_FREE_ROAM]);
         this.ui.setMode(null);
 
         // StartTrigger blocks again until a new mode is chosen.

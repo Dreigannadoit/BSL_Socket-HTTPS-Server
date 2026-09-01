@@ -5,7 +5,6 @@ import {
     DECEL_RATE,
     TURN_SMOOTHING,
     SLIDE_MIN_SLOPE,
-    SLIDE_MAX_SPEED,
     REVERSAL_SKID_DURATION,
     REVERSAL_DOT_THRESHOLD,
     REVERSAL_MIN_SPEED,
@@ -28,6 +27,14 @@ export class PlayerController {
         this.world = world;
         this.keys = keys;
         this.audioManager = audioManager;
+
+        // Current mode's speed cap — defaults to Free Roam's MAX_SPEED and
+        // is overridden by GameModeManager.selectMode() via setMaxSpeed()
+        // when Speedrun/Time Trial (or Free Roam again) is chosen. Also
+        // doubles as the slope-sliding speed cap (previously the separate
+        // SLIDE_MAX_SPEED constant, which was always just an alias for
+        // MAX_SPEED).
+        this.maxSpeed = MAX_SPEED;
 
         // Ground detection state
         this.groundNormal = new CANNON.Vec3(0, 1, 0);
@@ -152,6 +159,13 @@ export class PlayerController {
             this.prevTargetX = 0;
             this.prevTargetZ = 0;
         }
+    }
+
+    // Called by GameModeManager.selectMode() so each mode's top speed
+    // (and slope-sliding cap, which just mirrors it) takes effect
+    // immediately — no need to wait for a fresh press.
+    setMaxSpeed(maxSpeed) {
+        this.maxSpeed = maxSpeed;
     }
 
     // Locks out player input for `seconds` (e.g. when a hotspot fires).
@@ -382,8 +396,8 @@ export class PlayerController {
             ballBody.velocity.z += downhillAccel.z * dt;
 
             const horizSpeed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
-            if (horizSpeed > SLIDE_MAX_SPEED) {
-                const scale = SLIDE_MAX_SPEED / horizSpeed;
+            if (horizSpeed > this.maxSpeed) {
+                const scale = this.maxSpeed / horizSpeed;
                 ballBody.velocity.x *= scale;
                 ballBody.velocity.z *= scale;
             }
@@ -406,7 +420,7 @@ export class PlayerController {
         // phase 2 (see getStartHoldMs in config.js).
         if (!this.wasInputActive) {
             const currentSpeed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
-            this.inputHoldTime = getStartHoldMs(currentSpeed / MAX_SPEED);
+            this.inputHoldTime = getStartHoldMs(currentSpeed / this.maxSpeed);
             // currentInput also gets zeroed on release (see _applyNoInput).
             // Seed it to the ball's CURRENT TRAVEL DIRECTION (not the
             // newly-pressed key's direction) so the TURN_SMOOTHING ease
@@ -483,9 +497,9 @@ export class PlayerController {
         // capped.
         const hotspotSpeedScale = this.isHotspotActive ? 0.5 : 1;
 
-        let targetVelX = moveDir.x * MAX_SPEED * upSlopeBoost * speedFraction * hotspotSpeedScale;
-        let targetVelZ = moveDir.z * MAX_SPEED * upSlopeBoost * speedFraction * hotspotSpeedScale;
-        let targetVelY = moveDir.y * MAX_SPEED * upSlopeBoost * speedFraction * hotspotSpeedScale;
+        let targetVelX = moveDir.x * this.maxSpeed * upSlopeBoost * speedFraction * hotspotSpeedScale;
+        let targetVelZ = moveDir.z * this.maxSpeed * upSlopeBoost * speedFraction * hotspotSpeedScale;
+        let targetVelY = moveDir.y * this.maxSpeed * upSlopeBoost * speedFraction * hotspotSpeedScale;
 
         if (this.bounceTimer > 0) {
             this.bounceTimer -= dt;
