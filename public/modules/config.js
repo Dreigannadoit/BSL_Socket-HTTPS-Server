@@ -18,7 +18,7 @@ export const SOUND_FILES = {
 export const BALL_RADIUS = 0.35;
 
 // ── Movement ──
-export const MAX_SPEED = 9.3;
+export const MAX_SPEED = 7.3;
 export const ACCEL = 15;
 export const DECEL_RATE = 1.5;
 // Lower = smoother/slower direction changes while moving. Decoupled from
@@ -103,7 +103,7 @@ export const HOTSPOT_TARGET_Y_OFFSET = 0.85;    // meters above the ball the cam
 export const HOTSPOT_CAMERA_BLEND = 0.1;       // per-frame ease factor (not dt-scaled), matches SKID_CAMERA_ROLL_SMOOTH's style
 
 // ── Wall bounce overlay ──
-export const BOUNCE_DURATION = 0.3; // seconds of smooth transition after a wall impact
+export const BOUNCE_DURATION = 0.2; // seconds of smooth transition after a wall impact
 
 // ── Landing bounce sequence ──
 export const MAX_LANDING_BOUNCES = 3;

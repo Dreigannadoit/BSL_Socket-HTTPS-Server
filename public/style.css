@@ -133,7 +133,7 @@ canvas {
     border-radius: 5px;
     background-color: #fff;
     z-index: 999;
-    transform: perspective(23500px) rotateX(-19deg) rotateY(41deg) translate3d(80px, -90px, 200px) scale(0.6);
+    transform: perspective(23500px) rotateX(-19deg) rotateY(41deg) translate3d(10px, -90px, 250px) scale(0.6);
 }
 
 .hotspot-content-1>.container .start_card p {
@@ -143,7 +143,7 @@ canvas {
 .hotspot-content-1>.container .start_menu_container {
     position: relative;
     width: 600px;
-    transform: rotateX(-20deg) rotateY(-34deg) translate3d(10px, -90px, 120px) scale(0.556);
+    transform: rotateX(-20deg) rotateY(-34deg) translate3d(60px, -90px, 130px) scale(0.65);
     color: #fff;
     z-index: 999;
 }

@@ -19,7 +19,7 @@ export function createPhysicsWorld() {
     // Wall bounce
     const wallContact = new CANNON.ContactMaterial(wallMaterial, ballMaterial, {
         friction: 0.55,
-        restitution: 0.9,
+        restitution: 0.6,
         contactEquationStiffness: 1e8,
         contactEquationRelaxation: 3,
     });

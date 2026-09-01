@@ -252,6 +252,7 @@ export class GameModeManager {
             this.ui.setOrbCount(this.orbsCollected, TIME_TRIAL_ORB_COUNT);
             this.ui.setTimer(this._formatTime(this.timeTrialRemaining));
             this.ui.flashMessage(`GO! Collect all ${TIME_TRIAL_ORB_COUNT} orbs!`);
+            // TODO: REPLACE WITH FLASH
             this.ui.showToast("Find all the orbs");
             this._updateGlowColor();
         }
@@ -466,6 +467,7 @@ export class GameModeManager {
                 this._updateGlowColor();
 
                 if (this.orbsCollected === TIME_TRIAL_ORB_COUNT) {
+                    // TODO: REPLACE WITH FLASH
                     this.ui.showToast("Follow the path to the End Marker quickly");
                 }
             }

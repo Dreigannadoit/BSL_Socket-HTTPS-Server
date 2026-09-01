@@ -111,7 +111,7 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playe
             gameModeManager.onLevelLoaded({ root });
 
             hud.textContent =
-                `Loaded (5.6x world). ${colliderCount} collision meshes. WASD / Arrows to roll.`;
+                `Loaded (5.6x world). ${colliderCount} collision meshes.`;
         },
         undefined,
         (err) => {

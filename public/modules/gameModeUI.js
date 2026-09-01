@@ -5,8 +5,8 @@ const MODE_LABELS = {
 };
 
 // A small, self-contained HUD overlay for the three selectable game modes:
-// a persistent top-right badge (which mode is active, plus its
-// timer/orb-count readout) and a centered modal popup reused for every
+// a persistent mode/timer readout (now split into two standalone chips —
+// modeLabel and statLine) and a centered modal popup reused for every
 // result/confirmation dialog (Free Roam's "end run?" prompt, Speedrun's
 // finish time, Time Trial's success/fail screen).
 //
@@ -23,31 +23,42 @@ export class GameModeUI {
     }
 
     _buildBadge() {
-        const badge = document.createElement("div");
-        badge.style.cssText = `
-            position: fixed; top: 16px; right: 16px; z-index: 20;
-            font-family: 'Plus Jakarta Sans', sans-serif; color: #fff;
-            background: rgba(10, 14, 20, 0.65); border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 10px; padding: 10px 16px; text-align: right;
-            min-width: 150px; pointer-events: none;
+        // Shared look for the three standalone containers: white background,
+        // black text, small padding, rounded corners.
+        const chipBase = `
+            font-family: 'Plus Jakarta Sans', sans-serif; color: #000;
+            background: #fff; border: 1px solid rgba(0,0,0,0.15);
+            border-radius: 10px; padding: 5px 10px; text-align: center;
+            pointer-events: none;
         `;
 
         this.modeLabel = document.createElement("div");
-        this.modeLabel.style.cssText =
-            "font-size: 13px; opacity: 0.75; letter-spacing: 0.04em; text-transform: uppercase;";
+        this.modeLabel.style.cssText = `
+            ${chipBase}
+            position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 20;
+            font-size: 13px; opacity: 0.9; letter-spacing: 0.04em; text-transform: uppercase;
+            min-width: 150px;
+        `;
 
         this.statLine = document.createElement("div");
-        this.statLine.style.cssText = "font-size: 22px; font-weight: 600; margin-top: 2px; display: none;";
+        this.statLine.style.cssText = `
+            ${chipBase}
+            position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 20; opacity: 0.9;
+            font-size: 18px; font-weight: 600; display: none;
+            min-width: 150px;
+        `;
 
         this.flashLine = document.createElement("div");
-        this.flashLine.style.cssText =
-            "font-size: 13px; margin-top: 4px; color: #7CFC9A; min-height: 16px; opacity: 0; transition: opacity 0.4s ease;";
+        this.flashLine.style.cssText = `
+            ${chipBase}
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 20;
+            font-size: 18px; font-weight: 600; color: #030303; min-height: 16px;
+            opacity: 0; transition: opacity 0.4s ease;
+        `;
 
-        badge.appendChild(this.modeLabel);
-        badge.appendChild(this.statLine);
-        badge.appendChild(this.flashLine);
-        document.body.appendChild(badge);
-        this.badge = badge;
+        document.body.appendChild(this.modeLabel);
+        document.body.appendChild(this.statLine);
+        document.body.appendChild(this.flashLine);
 
         this.setMode(null);
     }
@@ -91,13 +102,13 @@ export class GameModeUI {
     }
 
     // A separate, transient bottom-middle banner — distinct from the
-    // top-right badge's flashMessage() — used for the two Collection Time
-    // Trial objective callouts ("Find all the orbs" / "Follow the path to
-    // the End Marker quickly").
+    // top-middle badge chips' flashMessage() — used for the two Collection
+    // Time Trial objective callouts ("Find all the orbs" / "Follow the path
+    // to the End Marker quickly").
     _buildToast() {
         const toast = document.createElement("div");
         toast.style.cssText = `
-            position: fixed; left: 50%; bottom: 48px; z-index: 25;
+            position: fixed; left: 50%; bottom: 50%; z-index: 25;
             transform: translate(-50%, 12px);
             font-family: 'Plus Jakarta Sans', sans-serif; color: #fff;
             background: rgba(10, 14, 20, 0.75); border: 1px solid rgba(255,255,255,0.15);
@@ -125,7 +136,7 @@ export class GameModeUI {
     // mode: null | "freeroam" | "speedrun" | "timetrial" — the persistent
     // indication of which mode the player is currently in.
     setMode(mode) {
-        this.modeLabel.textContent = mode ? MODE_LABELS[mode] : "No mode — enter a Hotspot to choose";
+        this.modeLabel.textContent = mode ? MODE_LABELS[mode] : "No mode";
         if (!mode) {
             this._timerText = "";
             this._orbText = "";
@@ -153,8 +164,8 @@ export class GameModeUI {
         this.statLine.style.display = parts.length ? "block" : "none";
     }
 
-    // A short, self-dismissing hint under the badge (mode selected, "GO!",
-    // "collect all the orbs first", etc).
+    // A short, self-dismissing hint centered in the window (mode selected,
+    // "GO!", "collect all the orbs first", etc).
     flashMessage(text) {
         this.flashLine.textContent = text;
         this.flashLine.style.opacity = "1";

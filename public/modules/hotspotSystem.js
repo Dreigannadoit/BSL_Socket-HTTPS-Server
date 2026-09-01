@@ -23,7 +23,7 @@ const HOTSPOT_CONTENT = {
         <div class="start_menu_container">
             <div class="menu_header">
                 <p>Select A Mode</p>
-                <p id="current-mode-label" style="opacity:0.7;font-size:0.85em;margin:2px 0 0;"></p>
+                
                 <div class="slider_buttons">
                     <button class="mode_selector_button prev">
                         <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
@@ -99,13 +99,13 @@ const HOTSPOT_CONTENT = {
             const nextBtn = popupEl.querySelector(".slider_buttons .next");
             const currentModeLabel = popupEl.querySelector("#current-mode-label");
 
-            const MODE_NAMES = { freeroam: "Free Roam", speedrun: "Speedrun", timetrial: "Collection Time Trial" };
-            if (currentModeLabel) {
-                const current = context.getCurrentMode ? context.getCurrentMode() : null;
-                currentModeLabel.textContent = current
-                    ? `Current mode: ${MODE_NAMES[current] || current}`
-                    : "No mode selected yet";
-            }
+            // const MODE_NAMES = { freeroam: "Free Roam", speedrun: "Speedrun", timetrial: "Collection Time Trial" };
+            // if (currentModeLabel) {
+            //     const current = context.getCurrentMode ? context.getCurrentMode() : null;
+            //     currentModeLabel.textContent = current
+            //         ? `Current mode: ${MODE_NAMES[current] || current}`
+            //         : "No mode selected yet";
+            // }
 
             let currentIndex = 0;
             const goToSlide = (index) => {
