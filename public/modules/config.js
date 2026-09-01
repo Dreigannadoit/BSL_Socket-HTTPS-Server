@@ -44,6 +44,36 @@ function lerp(a, b, t) {
     return a + (b - a) * t;
 }
 
+// Inverse of getAccelFraction: given a starting speed as a fraction of
+// MAX_SPEED (e.g. currentSpeed / MAX_SPEED), finds the holdMs on the accel
+// curve that already produces roughly that fraction. Used so that letting
+// go mid-roll and pressing again resumes the ramp from wherever the ball's
+// current momentum already sits — 0-0.50 restarts in phase 0, 0.51-0.70
+// picks up mid-phase-1, 0.71-1.0 mid-phase-2 — instead of restarting the
+// curve (and the ball's velocity) from a dead stop.
+export function getStartHoldMs(speedFraction) {
+    const frac = Math.min(Math.max(speedFraction, 0), 1);
+    if (frac <= 0) return 0;
+    // holdMs > 1100 is where getAccelFraction flattens out to exactly
+    // 1.0 — using 1100 itself would land on the phase-2 formula's peak,
+    // which currently overshoots to 1.29 rather than capping at 1.0.
+    if (frac >= 1) return 1101;
+
+    // Binary search since getAccelFraction is monotonic (barring tiny
+    // dips right at its phase seams, which this is robust to in practice).
+    let lo = 0;
+    let hi = 1100;
+    for (let i = 0; i < 25; i++) {
+        const mid = (lo + hi) / 2;
+        if (getAccelFraction(mid) < frac) {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    return (lo + hi) / 2;
+}
+
 // ── Slope sliding ──
 export const SLIDE_MIN_SLOPE = 0.08;    // radians — below this, treat as "flat" and just decelerate
 export const SLIDE_MAX_SPEED = MAX_SPEED; // cap for how fast sliding can get
@@ -54,9 +84,9 @@ export const SLIDE_MAX_SPEED = MAX_SPEED; // cap for how fast sliding can get
 // much lower speed, and the drift itself is held noticeably longer before
 // the new direction takes over. Paired with the camera lean in
 // CameraController.
-export const REVERSAL_SKID_DURATION = 1.4;   // seconds the skid blend lasts
+export const REVERSAL_SKID_DURATION = 0.74;   // seconds the skid blend lasts
 export const REVERSAL_DOT_THRESHOLD = -0.15; // triggers on sharp turns, not just near-full reversals
-export const REVERSAL_MIN_SPEED = 1.2;       // skids can kick in at lower speeds too
+export const REVERSAL_MIN_SPEED = 1.0;       // skids can kick in at lower speeds too
 
 // ── Camera / skid feedback ──
 export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };

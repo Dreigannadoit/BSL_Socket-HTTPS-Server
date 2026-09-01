@@ -64,8 +64,10 @@ const HOTSPOT_CONTENT = {
                         <img src="http://localhost:8081/assets/test.png" alt="">
                         <br>
                         <h1>Speedrun</h1>
-                        <p>Race from the Start marker to the End marker as fast as you can. Every other hotspot is hidden until you finish.</p>
+                        <p>Race from the Start marker to the End marker as fast as you can.</p>
+                        <i><b>(My fastest time was 19.13 seconds)</b></i>
                         <br>
+                        
                         <button data-mode="speedrun">Select</button>
                     </div>
 

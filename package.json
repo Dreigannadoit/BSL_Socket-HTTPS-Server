@@ -1,12 +1,12 @@
 {
-  "name": "bsl-lab1",
-  "private": true,
-  "scripts": {
-    "bsl": "bonezegei src/http.bzg",
-    "assets": "npx serve public -l 8081 --cors",
-    "dev": "concurrently \"npm:bsl\" \"npm:assets\""
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  }
+    "name": "bsl-lab1",
+    "private": true,
+    "scripts": {
+        "bsl": "bonezegei src/http.bzg",
+        "assets": "npx serve public -l 8081 --cors",
+        "dev": "concurrently \"npm:bsl\" \"npm:assets\""
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
 }

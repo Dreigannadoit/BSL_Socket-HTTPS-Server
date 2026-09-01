@@ -17,6 +17,7 @@ import {
     HOTSPOT_WOBBLE_FREQUENCY,
     HOTSPOT_WOBBLE_DECAY,
     getAccelFraction,
+    getStartHoldMs,
 } from "./config.js";
 // Owns ground detection, rolling/skidding movement, and the wall/landing
 // bounce overlays. Exposes the state (isGrounded, reversalTimer, ...) that
@@ -60,6 +61,10 @@ export class PlayerController {
         // Smoothed input / accel-curve timing
         this.currentInput = { x: 0, z: 0 };
         this.inputHoldTime = 0;
+        // True while input has been continuously held since the last
+        // release. Drives the "fresh press" check in _applyInput that
+        // seeds inputHoldTime from current speed instead of 0.
+        this.wasInputActive = false;
 
         // Whether the ball is currently inside an active hotspot trigger
         // (HotspotSystem.isActive). Independent of stuckTimer — stuckTimer
@@ -142,6 +147,7 @@ export class PlayerController {
             this.currentInput.x = 0;
             this.currentInput.z = 0;
             this.inputHoldTime = 0;
+            this.wasInputActive = false;
             this.reversalTimer = 0;
             this.prevTargetX = 0;
             this.prevTargetZ = 0;
@@ -197,6 +203,7 @@ export class PlayerController {
         this.currentInput.x = 0;
         this.currentInput.z = 0;
         this.inputHoldTime = 0;
+        this.wasInputActive = false;
         this.prevTargetX = 0;
         this.prevTargetZ = 0;
         this.reversalTimer = 0;
@@ -344,7 +351,15 @@ export class PlayerController {
 
         this.currentInput.x = 0;
         this.currentInput.z = 0;
-        this.inputHoldTime = 0;
+        // NOTE: inputHoldTime is deliberately left alone here — it no
+        // longer gets zeroed on release. The ball's velocity isn't zeroed
+        // either (it just decays below), so resetting the accel curve to 0
+        // while real velocity was still nonzero used to cause the next
+        // _applyInput() to hard-set velocity back to ~0 on its very first
+        // frame. Instead we just flag input as released; _applyInput()
+        // reseeds inputHoldTime from the ball's actual current speed the
+        // next time input resumes (see wasInputActive below).
+        this.wasInputActive = false;
         // Clear so releasing then re-pressing the same direction later
         // isn't mistaken for a reversal.
         this.prevTargetX = 0;
@@ -382,6 +397,35 @@ export class PlayerController {
 
     _applyInput(dt, targetX, targetZ) {
         const ballBody = this.ballBody;
+
+        // Fresh press after a release (not a continuous hold) — seed the
+        // accel curve from the ball's current speed instead of 0, so a
+        // press mid-roll continues the ramp from wherever momentum already
+        // is rather than snapping velocity down to ~0 first. Skips 0-0.50
+        // of MAX_SPEED into phase 0, 0.51-0.70 into phase 1, 0.71-1.0 into
+        // phase 2 (see getStartHoldMs in config.js).
+        if (!this.wasInputActive) {
+            const currentSpeed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
+            this.inputHoldTime = getStartHoldMs(currentSpeed / MAX_SPEED);
+            // currentInput also gets zeroed on release (see _applyNoInput).
+            // Seed it to the ball's CURRENT TRAVEL DIRECTION (not the
+            // newly-pressed key's direction) so the TURN_SMOOTHING ease
+            // below curves from old heading to new heading — the same
+            // curving behavior that already happens when a second
+            // direction key is added while the first is still held.
+            // Snapping straight to the new target here (an earlier attempt)
+            // fixed the magnitude but produced an instant snap-turn instead
+            // of a curve when the new direction differs from the old one.
+            if (currentSpeed > 0.0001) {
+                this.currentInput.x = ballBody.velocity.x / currentSpeed;
+                this.currentInput.z = ballBody.velocity.z / currentSpeed;
+            } else {
+                // Ball was already at rest — nothing to curve from.
+                this.currentInput.x = targetX;
+                this.currentInput.z = targetZ;
+            }
+            this.wasInputActive = true;
+        }
 
         // Reversal detection — compare the new input direction against the
         // ball's ACTUAL CURRENT VELOCITY direction (not last frame's raw
