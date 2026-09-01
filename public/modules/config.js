@@ -99,10 +99,46 @@ export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead o
 // ── Hotspot camera framing ──
 // While a hotspot is active, CameraController eases from the normal follow
 // framing into a tighter, wider-FOV shot looking slightly above the ball,
-// then eases back out once it clears.
-export const HOTSPOT_CAMERA_OFFSET = { x: 2.5, y: 1.0, z: 2.5 }; // tighter than CAMERA_OFFSET
-export const HOTSPOT_CAMERA_FOV = 55;          // wider than the base 45° FOV — exaggerates the moment
-export const HOTSPOT_TARGET_Y_OFFSET = 0.85;    // meters above the ball the camera looks at
+// then eases back out once it clears. Each hotspot node ("Hotspot_N" from
+// the level GLB, same names as HOTSPOT_CONTENT in hotspotSystem.js) can have
+// its own offset/fov/targetYOffset here. Any hotspot without an entry falls
+// back to DEFAULT_HOTSPOT_CAMERA_CONFIG below.
+export const HOTSPOT_CAMERA_CONFIGS = {
+    Hotspot_1: {
+        offset: { x: 2.5, y: 1.0, z: 2.5 }, // tighter than CAMERA_OFFSET
+        fov: 55,                             // wider than the base 45° FOV — exaggerates the moment
+        targetYOffset: 0.85,                 // meters above the ball the camera looks at
+    },
+    Hotspot_2: {
+        offset: { x: 4.5, y: 1.0, z: 1 },
+        fov: 45,
+        targetYOffset: 0.95,
+    },
+    Hotspot_3: {
+        offset: { x: 4.5, y: 0.0, z: 6.5 },
+        fov: 25,
+        targetYOffset: 0.80,
+    },
+    Hotspot_4: {
+        offset: { x: 6.5, y: 0.5, z: 6 },
+        fov: 35,
+        targetYOffset: 1.95,
+    },
+    Hotspot_5: {
+        offset: { x: 1.5, y: 1.0, z: 6.5 },
+        fov: 25,
+        targetYOffset: 0.80,
+    },
+};
+
+// Used for any hotspot (e.g. Hotspot_3/4/5) that doesn't have its own entry
+// in HOTSPOT_CAMERA_CONFIGS above — keeps the old shared look as the default.
+export const DEFAULT_HOTSPOT_CAMERA_CONFIG = {
+    offset: { x: 2.5, y: 1.0, z: 2.5 },
+    fov: 55,
+    targetYOffset: 0.85,
+};
+
 export const HOTSPOT_CAMERA_BLEND = 0.1;       // per-frame ease factor (not dt-scaled), matches SKID_CAMERA_ROLL_SMOOTH's style
 
 // ── Wall bounce overlay ──
@@ -231,7 +267,7 @@ export const GAME_MODE_SPEEDRUN = "speedrun";
 export const GAME_MODE_TIME_TRIAL = "timetrial";
 
 // ── Per-mode max speed ──
-export const MAX_SPEED_SPEEDRUN = 11.2;
+export const MAX_SPEED_SPEEDRUN = 10.7;
 export const MAX_SPEED_TIME_TRIAL = 8.6;
 // Looked up by GameModeManager.selectMode() to push the right cap into
 // PlayerController/AudioManager whenever the player picks a mode.

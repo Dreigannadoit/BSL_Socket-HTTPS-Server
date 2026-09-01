@@ -55,11 +55,11 @@ canvas {
 #hotspot-popup {
     position: fixed;
     left: 50%;
-    bottom: 14%;
+    bottom: 50%;
     z-index: 15;
     pointer-events: none;
     opacity: 0;
-    transform: translate(-50%, -12px);
+    transform: translate(-50%, -50%);
     transition: opacity 500ms 0ms ease , transform 500ms 0ms ease ;
     font-family: sans-serif;
 }

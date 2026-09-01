@@ -157,7 +157,7 @@ function animate() {
     // already has, and not perceptible at 60fps.
     player.setHotspotActive(hotspotSystem.isActive);
     updateSunFollow(ballMesh.position);
-    cameraController.update(ballMesh, player, hotspotSystem.isActive);
+    cameraController.update(ballMesh, player, hotspotSystem.activeHotspot);
     updateSky(camera.position);
     bloomRenderer.setHotspotActive(hotspotSystem.isActive);
     bloomRenderer.render();

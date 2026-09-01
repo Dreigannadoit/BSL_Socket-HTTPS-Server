@@ -72,7 +72,7 @@ const HOTSPOT_CONTENT = {
                         <br>
                         <h1>Speedrun</h1>
                         <p>Race from the gate to the End marker as fast as you can.</p>
-                        <i><b>(My fastest time was 18.74 seconds)</b></i>
+                        <i><b>(My fastest time was 16.62 seconds)</b></i>
                         <br>
                         
                         <button data-mode="speedrun">Select</button>
@@ -90,6 +90,7 @@ const HOTSPOT_CONTENT = {
                         <br>
                         <h1>Collection Time Trial</h1>
                         <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute and 30-second clock runs out.</p>
+                        <i><b>(My fastest time was 57.18 seconds)</b></i>
                         <br>
                         <button data-mode="timetrial">Select</button>
                     </div>

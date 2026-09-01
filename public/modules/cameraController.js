@@ -1,9 +1,8 @@
 import * as THREE from "three";
 import {
     CAMERA_OFFSET,
-    HOTSPOT_CAMERA_OFFSET,
-    HOTSPOT_CAMERA_FOV,
-    HOTSPOT_TARGET_Y_OFFSET,
+    HOTSPOT_CAMERA_CONFIGS,
+    DEFAULT_HOTSPOT_CAMERA_CONFIG,
     HOTSPOT_CAMERA_BLEND,
     SKID_CAMERA_ROLL,
     SKID_CAMERA_ROLL_SMOOTH,
@@ -13,11 +12,11 @@ export class CameraController {
     constructor(camera) {
         this.camera = camera;
         this.offset = new THREE.Vector3(CAMERA_OFFSET.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z);
-        this.hotspotOffset = new THREE.Vector3(
-            HOTSPOT_CAMERA_OFFSET.x,
-            HOTSPOT_CAMERA_OFFSET.y,
-            HOTSPOT_CAMERA_OFFSET.z
-        );
+        // Scratch vector reused each frame to hold the *active* hotspot's
+        // offset (see HOTSPOT_CAMERA_CONFIGS) — which hotspot that is can
+        // change frame to frame, so this can't be precomputed once like
+        // `offset` above.
+        this._hotspotOffset = new THREE.Vector3();
         // The values actually applied each frame — eased toward `offset` /
         // baseFov / 0 normally, or toward the hotspot equivalents while a
         // hotspot is active, rather than snapping between the two.
@@ -32,21 +31,31 @@ export class CameraController {
     }
 
     // `player` is the PlayerController — its reversalTimer/reversalDuration
-    // and prevTargetX drive the skid-lean feedback. `isHotspotActive` comes
-    // from HotspotSystem: while true, the camera eases into a tighter,
-    // wider-FOV framing looking above the ball instead of straight at it.
-    update(ballMesh, player, isHotspotActive = false) {
-        const targetOffset = isHotspotActive ? this.hotspotOffset : this.offset;
+    // and prevTargetX drive the skid-lean feedback. `activeHotspot` comes
+    // from HotspotSystem (its `activeHotspot` field — { name, position, ... }
+    // or null): while set, the camera eases into that hotspot's own
+    // tighter/wider-FOV framing (HOTSPOT_CAMERA_CONFIGS[activeHotspot.name],
+    // falling back to DEFAULT_HOTSPOT_CAMERA_CONFIG) looking above the ball
+    // instead of straight at it.
+    update(ballMesh, player, activeHotspot = null) {
+        const isHotspotActive = !!activeHotspot;
+        const hotspotConfig = isHotspotActive
+            ? HOTSPOT_CAMERA_CONFIGS[activeHotspot.name] || DEFAULT_HOTSPOT_CAMERA_CONFIG
+            : null;
+
+        const targetOffset = isHotspotActive
+            ? this._hotspotOffset.set(hotspotConfig.offset.x, hotspotConfig.offset.y, hotspotConfig.offset.z)
+            : this.offset;
         this.currentOffset.lerp(targetOffset, HOTSPOT_CAMERA_BLEND);
 
-        const targetFov = isHotspotActive ? HOTSPOT_CAMERA_FOV : this.baseFov;
+        const targetFov = isHotspotActive ? hotspotConfig.fov : this.baseFov;
         this.currentFov += (targetFov - this.currentFov) * HOTSPOT_CAMERA_BLEND;
         if (Math.abs(this.camera.fov - this.currentFov) > 0.01) {
             this.camera.fov = this.currentFov;
             this.camera.updateProjectionMatrix();
         }
 
-        const targetYOffset = isHotspotActive ? HOTSPOT_TARGET_Y_OFFSET : 0;
+        const targetYOffset = isHotspotActive ? hotspotConfig.targetYOffset : 0;
         this.currentTargetYOffset += (targetYOffset - this.currentTargetYOffset) * HOTSPOT_CAMERA_BLEND;
 
         this.target.copy(ballMesh.position);
