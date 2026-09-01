@@ -84,12 +84,13 @@ export const SLIDE_MAX_SPEED = MAX_SPEED; // cap for how fast sliding can get
 // much lower speed, and the drift itself is held noticeably longer before
 // the new direction takes over. Paired with the camera lean in
 // CameraController.
-export const REVERSAL_SKID_DURATION = 1.4;   // seconds the skid blend lasts
+export const REVERSAL_SKID_DURATION = 0.4;   // seconds the skid blend lasts
 export const REVERSAL_DOT_THRESHOLD = -0.15; // triggers on sharp turns, not just near-full reversals
 export const REVERSAL_MIN_SPEED = 1.2;       // skids can kick in at lower speeds too
 
 // ── Camera / skid feedback ──
-export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
+// export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
+export const CAMERA_OFFSET = { x: 16.2, y: 35, z: 16.2 };
 export const SKID_CAMERA_ROLL = 0.045;        // radians of camera roll at full skid intensity
 export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead of snapping
 
@@ -103,7 +104,7 @@ export const HOTSPOT_TARGET_Y_OFFSET = 0.85;    // meters above the ball the cam
 export const HOTSPOT_CAMERA_BLEND = 0.1;       // per-frame ease factor (not dt-scaled), matches SKID_CAMERA_ROLL_SMOOTH's style
 
 // ── Wall bounce overlay ──
-export const BOUNCE_DURATION = 0.2; // seconds of smooth transition after a wall impact
+export const BOUNCE_DURATION = 0.8; // seconds of smooth transition after a wall impact
 
 // ── Landing bounce sequence ──
 export const MAX_LANDING_BOUNCES = 3;

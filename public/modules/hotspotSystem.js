@@ -61,7 +61,14 @@ const HOTSPOT_CONTENT = {
                     </div>
 
                     <div class="start_menu">
-                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <video
+                            src="http://localhost:8081/assets/Speedrun.mp4"
+                            autoplay
+                            muted
+                            loop
+                            playsinline
+                            style="width: 100%; object-fit: cover;"
+                            ></video>
                         <br>
                         <h1>Speedrun</h1>
                         <p>Race from the Start marker to the End marker as fast as you can.</p>
@@ -72,7 +79,15 @@ const HOTSPOT_CONTENT = {
                     </div>
 
                     <div class="start_menu">
-                        <img src="http://localhost:8081/assets/test.png" alt="">
+                        <video
+                            src="http://localhost:8081/assets/TimeTrial.mp4"
+                            autoplay
+                            muted
+                            loop
+                            playsinline
+                            style="width: 100%; object-fit: cover;"
+                            ></video>
+                        <br>
                         <br>
                         <h1>Collection Time Trial</h1>
                         <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute and 30-second clock runs out.</p>
@@ -126,6 +141,18 @@ const HOTSPOT_CONTENT = {
     Hotspot_2: {
         className: "hotspot-content-2",
         render: () => `<div>Content 2</div>`,
+    },
+    Hotspot_3: {
+        className: "hotspot-content-2",
+        render: () => `<div>Content 3</div>`,
+    },
+    Hotspot_4: {
+        className: "hotspot-content-2",
+        render: () => `<div>Content 4</div>`,
+    },
+    Hotspot_5: {
+        className: "hotspot-content-2",
+        render: () => `<div>Content 5</div>`,
     },
 };
 
