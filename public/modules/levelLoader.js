@@ -9,7 +9,7 @@ import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEAR
 // so it can compute fall bounds. (Ground fog is no longer authored
 // per-level — see PlayerFog, which tracks the player's height everywhere
 // instead of a fixed marker.)
-export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud }) {
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud }) {
     const loader = new GLTFLoader();
 
     loader.load(
@@ -24,6 +24,7 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playe
             const spawnNode = root.getObjectByName("Spawn");
             const collisionRoot = root.getObjectByName("CollisionShapes");
             const glowPathRoot = root.getObjectByName("GlowPath");
+            const brandRoot = root.getObjectByName("Brand");
             const hotspotsRoot = root.getObjectByName("Hotspots");
 
             const spawnPos = new THREE.Vector3();
@@ -98,6 +99,12 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playe
                 glowPath.setup(glowPathRoot);
             } else {
                 console.warn('No "GlowPath" node found — skipping neon path glow.');
+            }
+
+            if (brandRoot) {
+                brandGlow.setupIcon(brandRoot);
+            } else {
+                console.warn('No "Brand" node found — skipping brand glow.');
             }
 
             if (hotspotsRoot) {

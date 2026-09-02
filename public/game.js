@@ -63,6 +63,10 @@ const audioManager = new AudioManager();
 // ── Neon glow path ──
 const glowPath = new GlowPath();
 
+// ── Brand glow (same core-emissive + bloom treatment as GlowPath, applied
+// to the "Brand" group's "Branding" meshes instead of the neon path) ──
+const brandGlow = new GlowPath();
+
 // ── Player-relative depth fog ──
 const playerFog = new PlayerFog(scene);
 
@@ -103,7 +107,7 @@ const gameModeManager = new GameModeManager({
 });
 
 // ── Level ──
-loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud });
+loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud });
 
 // ── Resize ──
 window.addEventListener("resize", () => {
@@ -148,6 +152,7 @@ function animate() {
     audioManager.update(dt, ballBody, controls.keys);
     ballGlow.update(player.inputHoldTime);
     glowPath.update(clock.elapsedTime);
+    brandGlow.update(clock.elapsedTime);
     playerFog.update(ballMesh.position);
     hotspotSystem.update(ballMesh.position);
     hotspotSystem.updateGlow(clock.elapsedTime);

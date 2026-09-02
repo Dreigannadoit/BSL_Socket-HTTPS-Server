@@ -143,7 +143,7 @@ canvas {
 .hotspot-content-1>.container .start_menu_container {
     position: relative;
     width: 600px;
-    transform: rotateX(-20deg) rotateY(-34deg) translate3d(30px, -80px, 110px) scale(0.54);
+    transform: rotateX(-20deg) rotateY(-34deg) translate3d(30px, -50px, 110px) scale(0.64);
     color: #fff;
     z-index: 999;
 }
@@ -251,15 +251,18 @@ button.mode_selector_button:hover {
 }
 
 .start_menu button {
+    width: 100%;
+    font-weight: 800;
     padding: 15px;
     border: none;
     border-radius: 5px;
     font-size: 22px;
     transition: all 500ms;
+    cursor: pointer;
 }
 
 .start_menu button:hover {
-    background-color: aqua;
-    color: #fff;
+    background-color: rgb(0, 0, 0);
+    color: aqua;
     font-size: 28px;
 }

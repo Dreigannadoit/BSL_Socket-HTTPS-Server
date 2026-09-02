@@ -86,6 +86,49 @@ export class GlowPath {
         }
     }
 
+    // Like setup(), but for meshes that already carry an icon/line-art PNG
+    // (transparent background, opaque white strokes) — e.g. the
+    // "Brand"/"Branding" meshes. Instead of stripping the texture for a
+    // flat full-quad emissive color, this keeps it as the alpha mask
+    // (alphaTest discards the transparent background outright, rather than
+    // blending it away, so the mesh's actual quad/plane shape never
+    // renders) AND as the emissive mask (emissiveMap), so only the same
+    // opaque strokes pick up the neon glow/bloom — everywhere the texture
+    // is transparent stays completely unlit and out of the bloom pass.
+    setupIcon(iconRoot, { alphaTest = 0.5 } = {}) {
+        const targets = [];
+        iconRoot.traverse((child) => {
+            if (child.isMesh) targets.push(child);
+        });
+
+        for (const child of targets) {
+            const iconTexture = child.material?.map || null;
+            if (!iconTexture) {
+                console.warn(`GlowPath.setupIcon: "${child.name}" has no texture map — skipping.`);
+                continue;
+            }
+
+            const coreMat = new THREE.MeshStandardMaterial({
+                map: iconTexture,
+                color: GLOW_COLOR,
+                transparent: false,
+                alphaTest, // hard cutout — only the opaque line-art pixels render at all
+                emissive: GLOW_COLOR,
+                emissiveMap: iconTexture, // masks the glow to those same opaque pixels
+                emissiveIntensity: 1.6,
+                roughness: 0.3,
+                metalness: 0,
+                side: THREE.DoubleSide,
+                toneMapped: false, // let emissive push past 1.0 and actually read as "hot"
+            });
+            child.material = coreMat;
+            child.castShadow = false;
+            child.receiveShadow = false;
+            child.layers.enable(BLOOM_LAYER);
+            this.glowMaterials.push({ mat: coreMat, role: "core" });
+        }
+    }
+
     // Swaps every glow material's color/emissive (core meshes, plus the
     // Fresnel shells' glowColor uniform, in case any are ever added here)
     // to `color` — used by GameModeManager to flip the path red while a

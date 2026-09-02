@@ -107,7 +107,7 @@ export const HOTSPOT_CAMERA_CONFIGS = {
     Hotspot_1: {
         offset: { x: 2.5, y: 1.0, z: 2.5 }, // tighter than CAMERA_OFFSET
         fov: 55,                             // wider than the base 45° FOV — exaggerates the moment
-        targetYOffset: 0.85,                 // meters above the ball the camera looks at
+        targetYOffset: 1.20,                 // meters above the ball the camera looks at
     },
     Hotspot_2: {
         offset: { x: 4.5, y: 1.0, z: 1 },
@@ -121,8 +121,8 @@ export const HOTSPOT_CAMERA_CONFIGS = {
     },
     Hotspot_4: {
         offset: { x: 6.5, y: 0.5, z: 6 },
-        fov: 35,
-        targetYOffset: 1.95,
+        fov: 25,
+        targetYOffset: 0.9,
     },
     Hotspot_5: {
         offset: { x: 1.5, y: 1.0, z: 6.5 },
