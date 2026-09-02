@@ -10,6 +10,7 @@ import {
     ROLLING_MOVE_THRESHOLD,
     AUDIO_SMOOTH,
 } from "./config.js";
+import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 
 const BOUNCE_NAMES = ["bounce1", "bounce2", "bounce3", "bounce4", "bounce5"];
 
@@ -50,8 +51,7 @@ export class AudioManager {
     }
 
     async _loadSound(name, file) {
-        const res = await fetch(ASSET_BASE + file);
-        const arrayBuffer = await res.arrayBuffer();
+        const arrayBuffer = await fetchBinaryAsset(ASSET_BASE + file);
         this.soundBuffers[name] = await this.audioCtx.decodeAudioData(arrayBuffer);
     }
 

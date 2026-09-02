@@ -3,6 +3,7 @@ import * as CANNON from "cannon-es";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { BALL_RADIUS, BALL_GLB_URL, BALL_COLOR_LAYER } from "./config.js";
 import { BallGlow } from "./ballGlow.js";
+import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 
 function createBallTexture() {
     const size = 256;
@@ -57,9 +58,8 @@ export function createBall(scene, world, ballMaterial) {
     const ballGlow = new BallGlow();
 
     const ballLoader = new GLTFLoader();
-    ballLoader.load(
-        BALL_GLB_URL,
-        (gltf) => {
+
+    function onBallGLTFLoaded(gltf) {
             const model = gltf.scene;
 
             // Normalize the imported model to BALL_RADIUS and recenter it
@@ -95,22 +95,32 @@ export function createBall(scene, world, ballMaterial) {
             ballGlow.setup(model);
 
             ballMesh.add(model);
-        },
-        undefined,
-        (err) => {
-            console.error("Failed to load ball.glb — falling back to procedural ball:", err);
-            const fallbackMesh = new THREE.Mesh(
-                new THREE.SphereGeometry(BALL_RADIUS, 32, 32),
-                new THREE.MeshStandardMaterial({
-                    map: createBallTexture(),
-                    roughness: 0.4,
-                    metalness: 0.1,
-                })
-            );
-            fallbackMesh.layers.enable(BALL_COLOR_LAYER);
-            ballMesh.add(fallbackMesh);
-        }
-    );
+    }
+
+    function onBallGLTFLoadError(err) {
+        console.error("Failed to load ball.glb — falling back to procedural ball:", err);
+        const fallbackMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(BALL_RADIUS, 32, 32),
+            new THREE.MeshStandardMaterial({
+                map: createBallTexture(),
+                roughness: 0.4,
+                metalness: 0.1,
+            })
+        );
+        fallbackMesh.layers.enable(BALL_COLOR_LAYER);
+        ballMesh.add(fallbackMesh);
+    }
+
+    // GLTFLoader.load() would fetch BALL_GLB_URL directly, which is the
+    // raw (truncated-in-transit) .glb — fetch the base64 sidecar and
+    // decode it ourselves instead, then hand GLTFLoader the intact bytes
+    // via .parse() rather than a URL.
+    fetchBinaryAsset(BALL_GLB_URL)
+        .then((buffer) => new Promise((resolve, reject) => {
+            ballLoader.parse(buffer, "", resolve, reject);
+        }))
+        .then(onBallGLTFLoaded)
+        .catch(onBallGLTFLoadError);
 
     return { ballMesh, ballBody, ballGlow };
 }

@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER, HOTSPOT_ENTER_RADIUS, HOTSPOT_EXIT_RADIUS } from "./config.js";
+import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER, HOTSPOT_ENTER_RADIUS, HOTSPOT_EXIT_RADIUS, ASSET_BASE } from "./config.js";
+import { fetchAssetBlobURL } from "./binaryAssetLoader.js";
 
 // Maps a hotspot's world node name (as authored in the level GLB, under a
 // "Hotspots" root — same pattern as "CollisionShapes"/"GlowPath") to the
@@ -52,7 +53,7 @@ const HOTSPOT_CONTENT = {
                 <div class="start_menu_track">
 
                     <div class="start_menu">
-                        <img src="http://localhost:8081/assets/FreeRoam.png" alt="">
+                        <img data-b64-src="FreeRoam.png" data-b64-type="image/png" alt="">
                         <br>
                         <h1>Free Roam</h1>
                         <p>Explore the map at your own pace and look at how the development process of the project went. No objectives. </p>
@@ -62,7 +63,8 @@ const HOTSPOT_CONTENT = {
 
                     <div class="start_menu">
                         <video
-                            src="http://localhost:8081/assets/Speedrun.mp4"
+                            data-b64-src="Speedrun.mp4"
+                            data-b64-type="video/mp4"
                             autoplay
                             muted
                             loop
@@ -80,7 +82,8 @@ const HOTSPOT_CONTENT = {
 
                     <div class="start_menu">
                         <video
-                            src="http://localhost:8081/assets/TimeTrial.mp4"
+                            data-b64-src="TimeTrial.mp4"
+                            data-b64-type="video/mp4"
                             autoplay
                             muted
                             loop
@@ -140,6 +143,23 @@ const HOTSPOT_CONTENT = {
         // buttons reach GameModeManager without HOTSPOT_CONTENT needing a
         // direct import of it.
         init: (popupEl, context = {}) => {
+            // The <img>/<video> tags above only carry a data-b64-src
+            // filename (see the comment on binaryAssetLoader.js for why a
+            // plain src="/assets/..." would come back truncated). Resolve
+            // each one to a decoded Blob URL now that they're real DOM
+            // elements. Runs async/best-effort — a slow-loading thumbnail
+            // just pops in a moment late rather than blocking the popup.
+            popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
+                const file = el.getAttribute("data-b64-src");
+                const type = el.getAttribute("data-b64-type");
+                fetchAssetBlobURL(ASSET_BASE + file, type)
+                    .then((blobUrl) => {
+                        el.src = blobUrl;
+                        if (el.tagName === "VIDEO") el.load();
+                    })
+                    .catch((err) => console.error(`Failed to load ${file}:`, err));
+            });
+
             const track = popupEl.querySelector(".start_menu_track");
             const slides = popupEl.querySelectorAll(".start_menu");
             const prevBtn = popupEl.querySelector(".slider_buttons .prev");

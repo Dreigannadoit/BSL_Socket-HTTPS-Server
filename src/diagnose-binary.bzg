@@ -1,0 +1,32 @@
+// Run this on its own (bonezegei src/diagnose-binary.bzg) from the
+// project root. It isolates whether readFile() or socket_write() is the
+// one truncating binary data at a 0x00 byte, by comparing the on-disk
+// size (fileSize) against what actually made it into memory after
+// readFile() (sizeof).
+//
+// If "Read length" < "On-disk size": readFile() itself is truncating.
+// If they match: readFile() is fine, and the truncation is happening
+// later, in socket_write() on the server side.
+
+var target = "public/assets/bounce5.mp3"; // smallest binary asset, 16 KB
+
+var onDisk = fileSize(target);
+print("On-disk size (fileSize):   " + onDisk + " bytes\n");
+
+var data = readFile(target);
+var inMemory = sizeof(data);
+print("Read length (sizeof):      " + inMemory + " bytes\n");
+
+if (inMemory < onDisk) {
+    print("\n=> readFile() truncated the file. The read side is the\n");
+    print("   problem -- it's very likely treating the file as a\n");
+    print("   null-terminated C string and stopping at the first 0x00\n");
+    print("   byte, well before the real end of the file.\n");
+} else if (inMemory == onDisk) {
+    print("\n=> readFile() returned the full file intact. The read side\n");
+    print("   is fine -- the truncation reported by the browser must be\n");
+    print("   happening in socket_write() on the server side instead.\n");
+} else {
+    print("\n=> Read length is LARGER than the on-disk size, which is\n");
+    print("   unexpected -- worth double-checking target path/encoding.\n");
+}

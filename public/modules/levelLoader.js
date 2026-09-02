@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEARCOAT_ROUGHNESS } from "./config.js";
+import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 
 // Loads the level GLB, builds physics colliders from its "CollisionShapes"
 // node, sets up the neon glow path from its marker node, registers hotspot
@@ -12,9 +13,7 @@ import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEAR
 export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud }) {
     const loader = new GLTFLoader();
 
-    loader.load(
-        GLB_URL,
-        (gltf) => {
+    function onLevelGLTFLoaded(gltf) {
             const root = gltf.scene;
             root.scale.multiplyScalar(1.4);
             root.updateMatrixWorld(true);
@@ -119,11 +118,21 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brand
 
             hud.textContent =
                 `Loaded (5.6x world). ${colliderCount} collision meshes.`;
-        },
-        undefined,
-        (err) => {
-            console.error(err);
-            hud.textContent = "Failed to load maze_platform.glb — check console.";
-        }
-    );
+    }
+
+    function onLevelGLTFLoadError(err) {
+        console.error(err);
+        hud.textContent = "Failed to load maze_platform.glb — check console.";
+    }
+
+    // GLTFLoader.load() would fetch GLB_URL directly, which is the raw
+    // (truncated-in-transit) .glb — fetch the base64 sidecar and decode
+    // it ourselves instead, then hand GLTFLoader the intact bytes via
+    // .parse() rather than a URL.
+    fetchBinaryAsset(GLB_URL)
+        .then((buffer) => new Promise((resolve, reject) => {
+            loader.parse(buffer, "", resolve, reject);
+        }))
+        .then(onLevelGLTFLoaded)
+        .catch(onLevelGLTFLoadError);
 }

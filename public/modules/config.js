@@ -1,5 +1,5 @@
 // ── Asset locations ──
-export const ASSET_BASE = "http://localhost:8081/assets/";
+export const ASSET_BASE = "/assets/";
 export const GLB_URL = ASSET_BASE + "maze_platform_high.glb";
 export const BALL_GLB_URL = ASSET_BASE + "ball.glb";
 

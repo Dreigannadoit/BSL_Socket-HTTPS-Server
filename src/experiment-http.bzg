@@ -1,0 +1,21 @@
+// EXPERIMENTAL — createHTTPServer() has no published documentation.
+// This guesses at a Node-style API (BSL is explicitly modeled on
+// JS/C syntax). Run this and report back EXACTLY what happens:
+// - Does it throw an argument-count/type error? Paste it verbatim.
+// - Does it print "Listening" and hang (a good sign)?
+// - If it hangs, open http://localhost:3000/ in a browser and report
+//   what shows up in the terminal and in the browser.
+include("lib/http.bzg");
+
+function handler(req, res) {
+    print("Got a request!\n");
+    // Guessing there might be a native "send file" method on res that
+    // writes bytes straight to the socket without ever making them a
+    // BSL string -- if this line errors, tell me the exact message,
+    // that's useful information even if the guess is wrong.
+    res.send("Hello from createHTTPServer!");
+}
+
+print("Attempting to start server on port 3000...\n");
+var server = createHTTPServer(3000, handler);
+print("createHTTPServer() returned: " + server + "\n");
