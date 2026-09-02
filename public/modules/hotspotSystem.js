@@ -192,7 +192,97 @@ const HOTSPOT_CONTENT = {
     },
     Hotspot_2: {
         className: "hotspot-content-2",
-        render: () => `<div>Content 2</div>`,
+        render: () => `
+    <div class="main_wrapper">
+        <h1>Hello, World!</h1>
+
+        <div class="slider_buttons">
+            <button class="mode_selector_button prev">
+                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                <span>Prev Mode</span>
+            </button>
+            <button class="mode_selector_button next">
+                <span>Next Mode</span>
+                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+        </div>
+        <br>
+
+        <div class="slider_viewport">
+            <div class="slider">
+                <div class="slide_1 slide">
+                    <img data-b64-src="FreeRoam.png" data-b64-type="image/png" alt="">
+                </div>
+                <div class="slide_2 slide">
+                    <p>This Project is to show case BSL capabilities in fetching a heavy files.</p>
+                    <br>
+                    <button class="Record_player">
+                        <svg class="w-10 h-10 text-gray-800 dark:text-white" aria-hidden="true"
+                            xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="currentColor"
+                            viewBox="0 0 24 24">
+                            <path fill-rule="evenodd"
+                                d="M8.6 5.2A1 1 0 0 0 7 6v12a1 1 0 0 0 1.6.8l8-6a1 1 0 0 0 0-1.6l-8-6Z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="side_wrapper">
+        <div class="side">
+            <h1>HOTSPOT</h1>
+            <h1>2</h1>
+        </div>
+    </div>
+    `,
+        // Same b64-resolution pattern as Hotspot_1. Slider has three ways to
+        // advance: the .slider_buttons prev/next pair up top, and the single
+        // slide_next_button inside slide_2 — all three drive the same
+        // goToSlide() so they stay in sync regardless of which one is used.
+        init: (popupEl, context = {}) => {
+            popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
+                const file = el.getAttribute("data-b64-src");
+                const type = el.getAttribute("data-b64-type");
+                fetchAssetBlobURL(ASSET_BASE + file, type)
+                    .then((blobUrl) => {
+                        el.src = blobUrl;
+                        if (el.tagName === "VIDEO") el.load();
+                    })
+                    .catch((err) => console.error(`Failed to load ${file}:`, err));
+            });
+
+            const slider = popupEl.querySelector(".slider");
+            const slides = popupEl.querySelectorAll(".slide");
+            const nextBtn = popupEl.querySelector(".slide_next_button");
+            const prevModeBtn = popupEl.querySelector(".slider_buttons .prev");
+            const nextModeBtn = popupEl.querySelector(".slider_buttons .next");
+
+            let currentIndex = 0;
+            const goToSlide = (index) => {
+                currentIndex = (index + slides.length) % slides.length;
+                slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+            };
+
+            if (nextBtn) {
+                nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
+            }
+            if (prevModeBtn) {
+                prevModeBtn.addEventListener("click", () => goToSlide(currentIndex - 1));
+            }
+            if (nextModeBtn) {
+                nextModeBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
+            }
+        },
     },
     Hotspot_3: {
         className: "hotspot-content-2",

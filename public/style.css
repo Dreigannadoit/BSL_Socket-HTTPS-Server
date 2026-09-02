@@ -17,6 +17,7 @@ body {
 
 canvas {
     display: block;
+    z-index: 1;
 }
 
 
@@ -151,8 +152,8 @@ button.mode_selector_button {
 
     padding: 0.6rem 0.9rem;
     border: none;
-    background: #111;
-    color: #fff;
+    background: #fff;
+    color: #111;
     cursor: pointer;
 
     overflow: hidden;
@@ -327,8 +328,8 @@ button.mode_selector_button {
 
     padding: 0.6rem 0.9rem;
     border: none;
-    background: #111;
-    color: #fff;
+    background: #fff;
+    color: #111;
     cursor: pointer;
 
     overflow: hidden;
@@ -368,6 +369,7 @@ button.mode_selector_button:hover svg {
 
 button.mode_selector_button:hover {
     background: #222;
+    color: #fff;
 }
 
 /* Shared slider mechanics — used both by the .about start-menu carousel
@@ -440,29 +442,103 @@ button.mode_selector_button:hover {
 }
 
 .hotspot-content-2{
-    position: relative;
+    position: fixed;
     height: 100vh;
     width: 100%;
     z-index: 9999;
-    perspective: 2000px;
+    perspective: 4000px;
     transform-style: preserve-3d;
 }
 
-.main_wrapper{
+.hotspot-content-2#hotspot-popup{
+    transform: translate(50%, 50%);
+
+}
+
+.hotspot-content-2#hotspot-popup.visible{
+    transform: translate(0%, 0);
+    left: 0;
+    bottom: 0;
+    pointer-events: auto;
+}
+
+.hotspot-content-2 .main_wrapper{
     position: fixed;
     top: 35%;
     left: 50%;
-    height: 350px;
-    width: 600px;
-    background-color: #fff;
-    transform: rotateX(-10deg) rotateY(16deg) translate3d(75px, -18px, 103px) translate(-50%, -50%) ;
+    height: 320px;
+    width: 500px;
+    transform: rotateX(-11deg) rotateY(16deg) translate3d(75px, -18px, 100px) translate(-50%, -50%) ;
 
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     align-items: flex-start;
+    padding: 0 20px;
 }
 
-.side{
-    color: #fff;
+.hotspot-content-2 .main_wrapper h1{
+    color: #fff; 
 }
+
+.hotspot-content-2 .slider_viewport{
+    width: 100%;
+    overflow: hidden;
+    color: #fff; 
+}
+
+.hotspot-content-2 .slider{
+    display: flex;
+    width: 100%;
+    transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+    will-change: transform;
+    
+}
+
+.hotspot-content-2 .slider .slide{
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+}
+
+.hotspot-content-2 .slider img{
+    width: 100%;
+    border-radius: 15px;
+}
+
+.hotspot-content-2 .slider .slide button{
+    border-radius: 100%;
+    border: none;
+    background-color: #fff;
+    padding: 11px 10px 10px 11px;
+    cursor: pointer;
+}
+
+.hotspot-content-2 .side_wrapper{
+    position: relative;
+    height: 210px;
+    width: 150px;
+    
+    transform:rotateX(-11deg) rotateY(-65deg) translate3d(1260px, 100px, -103px) translate(-50%, -50%) ;
+
+}
+
+.hotspot-content-2 .side{
+    height: 100%;
+    width: 100%;
+    color: #ffffff;
+    text-align: center;
+    font-size: 15px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+
+}
+
+
+
+.hotspot-content-2 .side *{
+    
+}
+
