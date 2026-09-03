@@ -211,7 +211,7 @@ export class GameModeManager {
         this._checkStartLockout(ballPosition);
         this._checkEndTrigger(ballPosition);
 
-        if (this.mode === GAME_MODE_SPEEDRUN && this.runStarted) {
+        if (this.mode === GAME_MODE_SPEEDRUN && this.runStarted && !this._runEnded) {
             this.speedrunElapsed += dt;
             this.ui.setTimer(this._formatTime(this.speedrunElapsed));
         }
@@ -324,6 +324,7 @@ export class GameModeManager {
     }
 
     _completeSpeedrun() {
+        this._runEnded = true;   // stop the countdown/orb-pickup checks the instant EndTrigger is hit  
         this.player.setFrozen(true);
         this.audioManager.playHotspotSound(0.6);
         const finalTime = this._formatTime(this.speedrunElapsed);
