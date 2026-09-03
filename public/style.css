@@ -55,20 +55,12 @@ canvas {
      down. pointer-events stays off since hotspots are exited by driving
      away, not by clicking anything. */
 #hotspot-popup {
-    position: fixed;
-    left: 50%;
-    bottom: 50%;
-    z-index: 15;
-    pointer-events: none;
     opacity: 0;
-    transform: translate(-50%, -50%);
     transition: opacity 500ms 0ms ease , transform 500ms 0ms ease ;
-    font-family: sans-serif;
 }
 
 #hotspot-popup.visible {
     opacity: 1;
-    transform: translate(-50%, 0);
     transition: opacity 800ms 500ms ease , transform 800ms 500ms ease ;
 }
 
@@ -451,12 +443,11 @@ button.mode_selector_button:hover {
 }
 
 .hotspot-content-2#hotspot-popup{
-    transform: translate(50%, 50%);
-
+    transform: translate(50%, 50%) scale(2.5);
 }
 
 .hotspot-content-2#hotspot-popup.visible{
-    transform: translate(0%, 0);
+    transform: translate(0%, 0) scale(1);
     left: 0;
     bottom: 0;
     pointer-events: auto;
@@ -519,7 +510,7 @@ button.mode_selector_button:hover {
     height: 210px;
     width: 150px;
     
-    transform:rotateX(-11deg) rotateY(-65deg) translate3d(1260px, 100px, -103px) translate(-50%, -50%) ;
+    transform:rotateX(-11deg) rotateY(-60deg) translate3d(1100px, 95px, -103px) translate(-50%, -50%) ;
 
 }
 
@@ -536,9 +527,4 @@ button.mode_selector_button:hover {
 
 }
 
-
-
-.hotspot-content-2 .side *{
-    
-}
 

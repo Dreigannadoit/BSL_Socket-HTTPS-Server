@@ -178,6 +178,18 @@ export const HOTSPOT_WOBBLE_AMPLITUDE = 0.08; // meters of max sideways offset �
 export const HOTSPOT_WOBBLE_FREQUENCY = 4;    // oscillations per second — slower, softer rhythm
 export const HOTSPOT_WOBBLE_DECAY = 5;        // higher = settles faster
 
+// ── Dev-tool hotspot teleport ──
+// Pressing "1".."5" teleports the ball near (not directly onto) the
+// matching Hotspot_N marker — see devTools.js. Off by default; the
+// dev-tool checkbox toggles it at runtime. Diagonal offset (dx == dz) so
+// the landing spot sits just outside the hotspot's own enter/exit trigger
+// radius instead of immediately re-triggering its popup.
+export const TELEPORT_HOTSPOT_OFFSET = 2; // meters from the hotspot marker
+// Vertical lift above the marker's authored position, same idea as
+// RespawnSystem's own +0.3 spawn lift, sized up a bit since teleports can
+// land on uneven ground the ball wasn't already resting on.
+export const TELEPORT_LIFT = BALL_RADIUS + 0.5;
+
 // ── Respawn ──
 // Seconds "behind" the ball's live grounded position that the respawn
 // anchor tracks, so a fast run off a ledge lands you further back than a

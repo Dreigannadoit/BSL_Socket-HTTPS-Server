@@ -37,7 +37,22 @@ export class CameraController {
     // tighter/wider-FOV framing (HOTSPOT_CAMERA_CONFIGS[activeHotspot.name],
     // falling back to DEFAULT_HOTSPOT_CAMERA_CONFIG) looking above the ball
     // instead of straight at it.
-    update(ballMesh, player, activeHotspot = null) {
+    //
+    // `manualOverride` (optional) is devTools' camera state: while
+    // `manualOverride.lookAtPlayer` is false, this entire follow/lookAt
+    // pipeline is skipped and the camera's position/rotation is set
+    // directly from `manualOverride.position` (world units) and
+    // `manualOverride.rotationRadians` ({x,y,z} radians) instead — that's
+    // the devtools "look wherever you like" mode.
+    update(ballMesh, player, activeHotspot = null, manualOverride = null) {
+        if (manualOverride && !manualOverride.lookAtPlayer) {
+            const p = manualOverride.position;
+            const r = manualOverride.rotationRadians;
+            this.camera.position.set(p.x, p.y, p.z);
+            this.camera.rotation.set(r.x, r.y, r.z);
+            return;
+        }
+
         const isHotspotActive = !!activeHotspot;
         const hotspotConfig = isHotspotActive
             ? HOTSPOT_CAMERA_CONFIGS[activeHotspot.name] || DEFAULT_HOTSPOT_CAMERA_CONFIG

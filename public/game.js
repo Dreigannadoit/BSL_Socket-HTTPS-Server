@@ -13,6 +13,7 @@ import { PlayerController } from "./modules/playerController.js";
 import { CameraController } from "./modules/cameraController.js";
 import { RespawnSystem } from "./modules/respawnSystem.js";
 import { HotspotSystem } from "./modules/hotspotSystem.js";
+import { DevTools } from "./modules/devTools.js";
 import { GameModeManager } from "./modules/gameModeManager.js";
 import { GameModeUI } from "./modules/gameModeUI.js";
 import { loadLevel } from "./modules/levelLoader.js";
@@ -106,6 +107,12 @@ const gameModeManager = new GameModeManager({
     glowPath,
 });
 
+// ── Dev tools panel (right-middle of screen) ──
+// Every feature in here (hotspot teleport, freeze, hotspot hide/restore/
+// force-trigger, mode switcher, Time Trial cheats) is off/inert until
+// explicitly toggled or pressed — never on by default.
+const devTools = new DevTools({ ballBody, hotspotSystem, respawnSystem, player, gameModeManager, camera });
+
 // ── Level ──
 loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud });
 
@@ -162,10 +169,15 @@ function animate() {
     // already has, and not perceptible at 60fps.
     player.setHotspotActive(hotspotSystem.isActive);
     updateSunFollow(ballMesh.position);
-    cameraController.update(ballMesh, player, hotspotSystem.activeHotspot);
+    cameraController.update(ballMesh, player, hotspotSystem.activeHotspot, {
+        lookAtPlayer: devTools.lookAtPlayer,
+        position: devTools.manualCameraPosition,
+        rotationRadians: devTools.getManualCameraRotationRadians(),
+    });
     updateSky(camera.position);
-    bloomRenderer.setHotspotActive(hotspotSystem.isActive);
+    bloomRenderer.setHotspotActive(devTools.grayscalePreview || hotspotSystem.isActive);
     bloomRenderer.render();
+    devTools.update();
 }
 
 animate();

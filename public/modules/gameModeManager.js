@@ -168,6 +168,30 @@ export class GameModeManager {
         }
     }
 
+    // Dev-tool cheat: adds `seconds` to the live Time Trial countdown.
+    // No-op outside an active, still-running Time Trial run.
+    addTime(seconds) {
+        if (this.mode !== GAME_MODE_TIME_TRIAL || !this.runStarted || this._runEnded) return;
+        this.timeTrialRemaining += seconds;
+    }
+
+    // Dev-tool cheat: instantly collects every currently-spawned orb —
+    // same bookkeeping _checkOrbPickups() does per-orb on proximity, just
+    // applied to all of them at once regardless of the ball's position.
+    collectAllOrbs() {
+        if (this.mode !== GAME_MODE_TIME_TRIAL || !this.runStarted || this._runEnded) return;
+        for (let i = this.activeOrbs.length - 1; i >= 0; i--) {
+            const orb = this.activeOrbs[i];
+            this.scene.remove(orb.mesh);
+            orb.mesh.geometry.dispose();
+            orb.mesh.material.dispose();
+            this.activeOrbs.splice(i, 1);
+            this.orbsCollected++;
+        }
+        this.ui.setOrbCount(this.orbsCollected, TIME_TRIAL_ORB_COUNT);
+        this._updateGlowColor();
+    }
+
     // Every frame from the main loop.
     update(dt, ballPosition, elapsed) {
         // EndTrigger's glow/rings/wall animate regardless of game mode —

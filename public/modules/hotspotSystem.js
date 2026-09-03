@@ -320,6 +320,14 @@ export class HotspotSystem {
         this.hotspots = []; // { name, position, content, node, hidden }
         this.activeHotspot = null; // currently-inside hotspot, or null
         this.glowMaterials = []; // pulsed each frame, same pattern as GlowPath
+        // True while the currently-open popup was opened via
+        // triggerHotspot() (the dev-tool "force-trigger" buttons) rather
+        // than the ball actually rolling into range. update()'s normal
+        // proximity exit check is skipped while this is set — otherwise a
+        // forced popup would close itself the very next frame, since the
+        // ball is (almost always) nowhere near the hotspot it just forced
+        // open.
+        this._devForced = false;
     }
 
     // Called once after the level loads, with the "Hotspots" root node (or
@@ -390,9 +398,16 @@ export class HotspotSystem {
     // they can't be entered while suppressed for a Speedrun/Time Trial run.
     update(ballPosition) {
         if (this.activeHotspot) {
-            const dist = ballPosition.distanceTo(this.activeHotspot.position);
-            if (dist > HOTSPOT_EXIT_RADIUS || this.activeHotspot.hidden) {
+            if (this.activeHotspot.hidden) {
+                // A hide-all (e.g. a mode switch) should still close a
+                // forced-open popup — this check runs regardless of
+                // _devForced.
                 this._exit();
+            } else if (!this._devForced) {
+                const dist = ballPosition.distanceTo(this.activeHotspot.position);
+                if (dist > HOTSPOT_EXIT_RADIUS) {
+                    this._exit();
+                }
             }
         }
 
@@ -431,6 +446,28 @@ export class HotspotSystem {
         }
     }
 
+    // Dev-tool hook: fires a hotspot's popup by name without requiring the
+    // ball to actually be in range. Goes through the same _enter() path as
+    // a real trigger (including the onEnter callback/stick timer), so it's
+    // a faithful preview of HOTSPOT_CONTENT changes. Sets _devForced so
+    // update()'s normal "ball is too far away" exit check doesn't
+    // immediately close it again next frame — see closePopup() to dismiss
+    // it manually. No-op if the name isn't registered or is currently
+    // hidden (e.g. suppressed mid-run).
+    triggerHotspot(name) {
+        const hotspot = this.hotspots.find((h) => h.name === name && !h.hidden);
+        if (!hotspot) return;
+        this._devForced = true;
+        this._enter(hotspot);
+    }
+
+    // Dev-tool hook: closes whichever popup is currently open — forced or
+    // a real proximity trigger — and clears the forced-open flag so
+    // proximity-based enter/exit resumes normally afterward.
+    closePopup() {
+        this._exit();
+    }
+
     _enter(hotspot) {
         this.activeHotspot = hotspot;
         this.popupEl.innerHTML = hotspot.content.render();
@@ -445,6 +482,7 @@ export class HotspotSystem {
 
     _exit() {
         this.activeHotspot = null;
+        this._devForced = false;
         this.popupEl.classList.remove("visible");
     }
 
