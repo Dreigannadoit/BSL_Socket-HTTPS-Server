@@ -1,3 +1,5 @@
+import * as THREE from "three";
+
 import {
     TELEPORT_HOTSPOT_OFFSET,
     TELEPORT_LIFT,
@@ -12,6 +14,20 @@ const DEV_ADD_TIME_SECONDS = 30;
 
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
+
+// ── Camera Free Roam (free-look) tuning ──
+// Note: this is deliberately NOT a Blender-style "orbit around a pivot"
+// camera — rotating never moves the camera. `eye` (see _orbit state below)
+// is the single source of truth for position; rotate only ever changes
+// theta/phi (look direction), pan translates `eye` sideways/up-down, and
+// zoom dollies `eye` forward/back along the current look direction.
+const ORBIT_ROTATE_SPEED = 0.006; // radians per pixel of MMB drag
+const ORBIT_PAN_SPEED = 0.02; // world units per pixel
+const ORBIT_DRAG_ZOOM_SPEED = 0.02; // world units per pixel, Ctrl+MMB drag
+const ORBIT_WHEEL_ZOOM_SPEED = 0.01; // world units per wheel-delta unit
+// Keep phi just off the poles so look direction never flips underfoot.
+const ORBIT_MIN_PHI = 0.001;
+const ORBIT_MAX_PHI = Math.PI - 0.001;
 
 const MODE_BUTTONS = [
     { mode: GAME_MODE_FREE_ROAM, label: "Free Roam" },
@@ -66,10 +82,10 @@ export class DevTools {
             : { x: 0, y: 0, z: 0 };
         this.manualCameraRotation = this.camera
             ? {
-                x: RAD2DEG * this.camera.rotation.x,
-                y: RAD2DEG * this.camera.rotation.y,
-                z: RAD2DEG * this.camera.rotation.z,
-            }
+                  x: RAD2DEG * this.camera.rotation.x,
+                  y: RAD2DEG * this.camera.rotation.y,
+                  z: RAD2DEG * this.camera.rotation.z,
+              }
             : { x: 0, y: 0, z: 0 };
 
         // Hidden by default — Tab toggles visibility. The panel is still
@@ -77,9 +93,52 @@ export class DevTools {
         // works normally; only its display is gated.
         this.visible = false;
 
+        // Off by default, and only ever reachable through the checkbox that
+        // appears once lookAtPlayer is unchecked (see _buildCameraSection).
+        // While on, MMB-drag/scroll on the game view drives the camera via
+        // orbit math instead of the plain manual position/rotation fields —
+        // but it still just writes into those same fields every frame, so
+        // CameraController's manualOverride path (and the readouts/number
+        // inputs) don't need to know orbit mode exists at all.
+        this.freeRoamEnabled = false;
+        this._orbit = {
+            eye: new THREE.Vector3(), // the actual camera position — never moved by rotate
+            theta: 0, // azimuth of look direction around world Y, radians
+            phi: Math.PI / 3, // polar angle of look direction from world +Y, radians
+            // null | "orbit" | "pan" | "zoom" — which behavior the held MMB
+            // drag currently performs, decided once at mousedown time from
+            // whichever modifier keys were down then.
+            dragging: null,
+            lastX: 0,
+            lastY: 0,
+        };
+        // Scratch objects reused every frame so _applyOrbit/_panOrbit don't
+        // allocate: `_orbitDirection` is the current unit look direction,
+        // `_orbitLookTarget` is a throwaway point in front of `eye` used
+        // only to feed Object3D.lookAt (never stored), and `_orbitDummy` is
+        // what turns eye+lookTarget into a rotation via lookAt, without
+        // touching the real camera.
+        this._orbitDummy = new THREE.Object3D();
+        this._orbitDirection = new THREE.Vector3();
+        this._orbitLookTarget = new THREE.Vector3();
+
         this._buildPanel();
         this._onKeyDown = this._onKeyDown.bind(this);
         window.addEventListener("keydown", this._onKeyDown);
+
+        // Registered once and always live; each handler checks
+        // freeRoamEnabled itself, same as _onKeyDown already checks
+        // teleportEnabled. Mouse/wheel (not just keydown) because orbit
+        // needs to track MMB drags and the scroll wheel globally, not just
+        // while focused on a particular element.
+        this._onMouseDown = this._onMouseDown.bind(this);
+        this._onMouseMove = this._onMouseMove.bind(this);
+        this._onMouseUp = this._onMouseUp.bind(this);
+        this._onWheel = this._onWheel.bind(this);
+        window.addEventListener("mousedown", this._onMouseDown);
+        window.addEventListener("mousemove", this._onMouseMove);
+        window.addEventListener("mouseup", this._onMouseUp);
+        window.addEventListener("wheel", this._onWheel, { passive: false });
     }
 
     _setVisible(visible) {
@@ -277,10 +336,6 @@ export class DevTools {
         if (!/^[1-5]$/.test(e.key)) return;
 
         this._teleportToHotspot(`Hotspot_${e.key}`);
-
-
-
-        console.log("Warning: You are going into the Developer Control Testing System of this project. If you are not Drei Abmab, please exit developer mode immediately.");
     }
 
     _teleportToHotspot(name) {
@@ -366,6 +421,160 @@ export class DevTools {
         return wrap;
     }
 
+    // ── Camera Free Roam: Blender-style MMB orbit ──
+    // All of this only ever runs while lookAtPlayer is off (the Free Roam
+    // checkbox can't even be checked otherwise — see _buildCameraSection),
+    // so it never fights with the normal follow camera.
+
+    // Seeds `eye` and the look-direction angles from wherever the camera
+    // actually is right now, so flipping Free Roam on never snaps the view
+    // anywhere — the very first frame reproduces the exact current
+    // position and (barring roll, which a level look-direction can't
+    // represent) the exact current facing.
+    _initOrbitFromCamera() {
+        if (!this.camera) return;
+        const orbit = this._orbit;
+
+        orbit.eye.copy(this.camera.position);
+
+        const forward = new THREE.Vector3();
+        this.camera.getWorldDirection(forward);
+        orbit.theta = Math.atan2(forward.x, forward.z);
+        orbit.phi = THREE.MathUtils.clamp(
+            Math.acos(THREE.MathUtils.clamp(forward.y, -1, 1)),
+            ORBIT_MIN_PHI,
+            ORBIT_MAX_PHI
+        );
+    }
+
+    // Converts the current eye position + look-direction angles into
+    // manualCameraPosition / manualCameraRotation (degrees) — the same
+    // fields the plain manual inputs write to — then pushes the new values
+    // into the number inputs so the panel never shows stale numbers while
+    // orbiting. Position always comes straight from `eye`: rotating never
+    // touches it, so the camera only ever moves via explicit pan/zoom.
+    _applyOrbit() {
+        const orbit = this._orbit;
+        const sinPhi = Math.sin(orbit.phi);
+        this._orbitDirection.set(
+            sinPhi * Math.sin(orbit.theta),
+            Math.cos(orbit.phi),
+            sinPhi * Math.cos(orbit.theta)
+        );
+
+        this.manualCameraPosition.x = orbit.eye.x;
+        this.manualCameraPosition.y = orbit.eye.y;
+        this.manualCameraPosition.z = orbit.eye.z;
+
+        this._orbitDummy.position.copy(orbit.eye);
+        this._orbitDummy.up.set(0, 1, 0);
+        this._orbitLookTarget.copy(orbit.eye).add(this._orbitDirection);
+        this._orbitDummy.lookAt(this._orbitLookTarget);
+
+        this.manualCameraRotation.x = RAD2DEG * this._orbitDummy.rotation.x;
+        this.manualCameraRotation.y = RAD2DEG * this._orbitDummy.rotation.y;
+        this.manualCameraRotation.z = RAD2DEG * this._orbitDummy.rotation.z;
+
+        this._syncCameraInputs();
+    }
+
+    // Slides `eye` sideways/up-down along the camera's own current
+    // right/up axes (from the last-applied orbit orientation). Rotation
+    // (theta/phi) is untouched, so this only ever translates the camera.
+    _panOrbit(dx, dy) {
+        const orbit = this._orbit;
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this._orbitDummy.quaternion);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this._orbitDummy.quaternion);
+        orbit.eye.addScaledVector(right, -dx * ORBIT_PAN_SPEED);
+        orbit.eye.addScaledVector(up, dy * ORBIT_PAN_SPEED);
+    }
+
+    // Moves `eye` forward/back along the current look direction (a dolly,
+    // not a distance-to-target change — there is no external target).
+    // Positive `amount` moves toward where the camera is looking.
+    _dollyOrbit(amount) {
+        const orbit = this._orbit;
+        const sinPhi = Math.sin(orbit.phi);
+        this._orbitDirection.set(
+            sinPhi * Math.sin(orbit.theta),
+            Math.cos(orbit.phi),
+            sinPhi * Math.cos(orbit.theta)
+        );
+        orbit.eye.addScaledVector(this._orbitDirection, amount);
+    }
+
+    _setFreeRoamEnabled(checked) {
+        this.freeRoamEnabled = checked;
+        if (checked) {
+            this._initOrbitFromCamera();
+            this._applyOrbit();
+        } else {
+            this._orbit.dragging = null;
+        }
+    }
+
+    _setFreeRoamRowVisible(visible) {
+        if (this.freeRoamRow) this.freeRoamRow.style.display = visible ? "flex" : "none";
+        if (this.freeRoamHint) this.freeRoamHint.style.display = visible ? "block" : "none";
+    }
+
+    _onMouseDown(e) {
+        if (!this.freeRoamEnabled) return;
+        if (e.button !== 1) return; // middle mouse button only
+        if (this.panel.contains(e.target)) return; // don't hijack panel scrolling/clicks
+
+        // Stop the browser's native middle-click autoscroll from kicking in.
+        e.preventDefault();
+
+        const orbit = this._orbit;
+        orbit.dragging = e.ctrlKey ? "zoom" : e.shiftKey ? "pan" : "orbit";
+        orbit.lastX = e.clientX;
+        orbit.lastY = e.clientY;
+    }
+
+    _onMouseMove(e) {
+        const orbit = this._orbit;
+        if (!orbit.dragging) return;
+
+        const dx = e.clientX - orbit.lastX;
+        const dy = e.clientY - orbit.lastY;
+        orbit.lastX = e.clientX;
+        orbit.lastY = e.clientY;
+
+        if (orbit.dragging === "orbit") {
+            orbit.theta -= dx * ORBIT_ROTATE_SPEED;
+            orbit.phi = THREE.MathUtils.clamp(orbit.phi - dy * ORBIT_ROTATE_SPEED, ORBIT_MIN_PHI, ORBIT_MAX_PHI);
+        } else if (orbit.dragging === "pan") {
+            this._panOrbit(dx, dy);
+        } else if (orbit.dragging === "zoom") {
+            orbit.radius = THREE.MathUtils.clamp(
+                orbit.radius + dy * ORBIT_DRAG_ZOOM_SPEED,
+                ORBIT_MIN_RADIUS,
+                ORBIT_MAX_RADIUS
+            );
+        }
+
+        this._applyOrbit();
+    }
+
+    _onMouseUp(e) {
+        if (e.button !== 1) return;
+        this._orbit.dragging = null;
+    }
+
+    _onWheel(e) {
+        if (!this.freeRoamEnabled) return;
+        e.preventDefault();
+
+        const orbit = this._orbit;
+        orbit.radius = THREE.MathUtils.clamp(
+            orbit.radius + e.deltaY * ORBIT_WHEEL_ZOOM_SPEED,
+            ORBIT_MIN_RADIUS,
+            ORBIT_MAX_RADIUS
+        );
+        this._applyOrbit();
+    }
+
     // ── Camera: live position/rotation readout, manual override fields,
     // and the lookAtPlayer toggle ──
     // While lookAtPlayer is on (default), CameraController runs its normal
@@ -411,10 +620,42 @@ export class DevTools {
                         this.manualCameraRotation.z = RAD2DEG * this.camera.rotation.z;
                         this._syncCameraInputs();
                     }
+
+                    // Camera Free Roam only makes sense while lookAtPlayer
+                    // is off — its checkbox is hidden the rest of the time.
+                    // Re-enabling lookAtPlayer forces Free Roam off (and
+                    // its box unchecked) too, rather than leaving it
+                    // silently armed for the next time the row reappears.
+                    this._setFreeRoamRowVisible(!checked);
+                    if (checked) {
+                        this._setFreeRoamEnabled(false);
+                        if (this.freeRoamCheckbox) this.freeRoamCheckbox.checked = false;
+                    }
                 },
                 true // ON by default
             )
         );
+
+        wrap.appendChild(
+            (() => {
+                const row = this._checkboxRow(
+                    "cameraFreeRoam",
+                    "Camera Free Roam",
+                    (checked) => this._setFreeRoamEnabled(checked),
+                    false // OFF by default
+                );
+                row.style.display = "none"; // shown only while lookAtPlayer is off
+                this.freeRoamRow = row;
+                this.freeRoamCheckbox = row.querySelector("input");
+                return row;
+            })()
+        );
+
+        const freeRoamHint = document.createElement("div");
+        freeRoamHint.textContent = "MMB orbit \u00b7 Shift+MMB pan \u00b7 Scroll/Ctrl+MMB zoom";
+        freeRoamHint.style.cssText = "opacity: 0.55; font-size: 10px; display: none;";
+        this.freeRoamHint = freeRoamHint;
+        wrap.appendChild(freeRoamHint);
 
         const posHeader = document.createElement("div");
         posHeader.textContent = "Position";
