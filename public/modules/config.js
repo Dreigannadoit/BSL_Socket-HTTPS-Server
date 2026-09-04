@@ -2,6 +2,11 @@
 export const ASSET_BASE = "/assets/";
 export const GLB_URL = ASSET_BASE + "maze_platform_high.glb";
 export const BALL_GLB_URL = ASSET_BASE + "ball.glb";
+// "Nebula Skybox 16k" by Jungle Jim (sketchfab.com/jungle_jim), CC-BY-4.0
+// (https://creativecommons.org/licenses/by/4.0/) — license requires
+// attribution wherever the game is shown (credits screen, README, etc.);
+// sky.js only wires up the asset, it doesn't render a credits UI.
+export const SKY_GLB_URL = ASSET_BASE + "nebula_skybox_16k.glb";
 
 export const SOUND_FILES = {
     bounce1: "bounce1.mp3",
@@ -294,8 +299,8 @@ export const MAX_SPEED_BY_MODE = {
 // duration of the run.
 export const HOTSPOT_1_NAME = "Hotspot_1";
 
-export const TIME_TRIAL_DURATION = 150; // seconds on the Time Trial countdown
-export const TIME_TRIAL_ORB_COUNT = 20; // orbs randomly picked from "Collectables" each run
+export const TIME_TRIAL_DURATION = 140; // seconds on the Time Trial countdown
+export const TIME_TRIAL_ORB_COUNT = 27; // orbs randomly picked from "Collectables" each run
 export const ORB_COLOR = 0xffcc33;
 export const ORB_MIN_RADIUS = 0.15; // floor so a tiny/degenerate Sphere marker still reads as a pickup
 

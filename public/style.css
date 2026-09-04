@@ -438,7 +438,7 @@ button.mode_selector_button:hover {
     height: 100vh;
     width: 100%;
     z-index: 9999;
-    perspective: 4000px;
+    perspective: 1500px;
     transform-style: preserve-3d;
 }
 
@@ -505,12 +505,16 @@ button.mode_selector_button:hover {
     cursor: pointer;
 }
 
+.hotspot-content-2 .slider p{
+    font-size: 22px;
+}
+
 .hotspot-content-2 .side_wrapper{
     position: relative;
     height: 210px;
     width: 150px;
     
-    transform:rotateX(-11deg) rotateY(-60deg) translate3d(1070px, 95px, -103px) translate(-50%, -50%) ;
+    transform:rotateX(-11deg) rotateY(-60deg) translate3d(1170px, 185px, -103px) translate(-50%, -50%) ;
 
 }
 
@@ -523,8 +527,20 @@ button.mode_selector_button:hover {
 
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-
+    align-items:center;
+    line-height: 30px;
 }
 
 
+.hotspot-content-2 .side h2{
+    font-size: 42px;
+}
+
+.hotspot-content-2 .side h3{
+    font-size: 32px;
+}
+
+.hotspot-content-2 .side h1{
+    font-size: 82px;
+    line-height: 60px;
+}

@@ -74,7 +74,7 @@ const HOTSPOT_CONTENT = {
                         <br>
                         <h1>Speedrun</h1>
                         <p>Race from the gate to the End marker as fast as you can.</p>
-                        <i><b>(My fastest time was 16.62 seconds)</b></i>
+                        <i><b>(My fastest time was 16.01 seconds)</b></i>
                         <br>
                         
                         <button data-mode="speedrun">Select</button>
@@ -222,7 +222,7 @@ const HOTSPOT_CONTENT = {
                     <img data-b64-src="FreeRoam.png" data-b64-type="image/png" alt="">
                 </div>
                 <div class="slide_2 slide">
-                    <p>This Project is to show case BSL capabilities in fetching a heavy files.</p>
+                    <p>This project was created to test out BSL capabilities by creating a lightweight custom HTTP server written from scratch in the Bonezegei Scripting Language (BSL). </p>
                     <br>
                     <button class="Record_player">
                         <svg class="w-10 h-10 text-gray-800 dark:text-white" aria-hidden="true"
@@ -240,7 +240,8 @@ const HOTSPOT_CONTENT = {
 
     <div class="side_wrapper">
         <div class="side">
-            <h1>HOTSPOT</h1>
+            <h2>HOT</h2>
+            <h3>SPOT</h3>
             <h1>2</h1>
         </div>
     </div>

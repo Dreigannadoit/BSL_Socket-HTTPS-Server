@@ -27,8 +27,10 @@ const hotspotPopup = document.getElementById("hotspot-popup");
 const scene = new THREE.Scene();
 
 // ── Sky ──
-// A camera-following gradient dome (deep blue overhead fading to warm
-// orange at the horizon) instead of a flat background color.
+// A camera-following gradient dome (sunrise: indigo overhead through a
+// dusty rose band to a glowing horizon sun) that shows instantly, with the
+// nebula skybox GLB fading in on top of it once its texture finishes
+// loading — see sky.js.
 const { update: updateSky } = createSky(scene);
 
 const camera = new THREE.PerspectiveCamera(
@@ -174,7 +176,7 @@ function animate() {
         position: devTools.manualCameraPosition,
         rotationRadians: devTools.getManualCameraRotationRadians(),
     });
-    updateSky(camera.position);
+    updateSky(camera.position, dt);
     bloomRenderer.setHotspotActive(devTools.grayscalePreview || hotspotSystem.isActive);
     bloomRenderer.render();
     devTools.update();
