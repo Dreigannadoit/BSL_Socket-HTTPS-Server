@@ -66,11 +66,11 @@ ball you roll through a 3D maze platform using WASD or the arrow keys.
   socket server.
 - Windows is required for this specific build, because the bundled socket
   library (`lib/socket/socket.dll`) is a compiled Windows DLL.
-- Node.js/npm are optional now — `package.json` wraps two things behind
-  `npm run dev`: regenerating the `.b64` asset sidecars (`certutil`, no
-  Node needed for the encoding itself) and then starting `bonezegei
-  src/http.bzg`. You can run the interpreter directly instead; see Step 3
-  below.
+- Node.js/npm are optional — the server itself (`bonezegei src/http.bzg`)
+  never needs them. They're only used for `npm run dev`'s auto-encoding +
+  live-reload watcher (`scripts/dev-watch.js`); see Step 3 below. If you
+  don't have Node installed, run the interpreter directly and fall back to
+  `scripts\encode-assets.bat` whenever you add or swap a binary asset.
 
 ### Step 1: Install the BSL interpreter
 
@@ -121,37 +121,66 @@ bzg install socket
 
 ### Step 3: Run the server
 
-From the project root, either run the interpreter directly:
+From the project root, either run the interpreter directly (no live reload,
+no auto-encoding — the original static flow):
 
 ```bash
 bonezegei src/http.bzg
 ```
 
-or, if you have Node/npm available:
+or, for the auto-reloading dev workflow (requires Node/npm):
 
 ```bash
 npm run dev
 ```
 
-`npm run dev` first re-runs `scripts\encode-assets.bat` (regenerating every
-`.b64` sidecar under `public/assets/` from the current binary files, via
-Windows' built-in `certutil` — no Node involved in the encoding itself),
-*then* starts `bonezegei src/http.bzg`. It's sequential on purpose: the
-encode step is a quick one-shot batch, not a long-running process, so
-running it concurrently with the server risked the server accepting
-requests before a `.b64` file (especially the larger `TimeTrial.mp4.b64`)
-finished being rewritten.
+`npm run dev` runs `scripts\dev.bat`, which starts **two** independent
+processes:
 
-Two narrower scripts if you don't need the full `dev` flow:
+1. **`bonezegei src/http.bzg`**, in its own terminal window — the actual
+   static file server, on port `3000`, completely unchanged.
+2. **`node scripts/dev-watch.js`**, in the current window — a dev-only
+   companion that watches the filesystem for you and:
+   - **Auto-encodes assets.** Add, replace, or delete a binary file
+     (`.png`/`.jpg`/`.mp3`/`.mp4`/`.glb`) under `public/assets/` and its
+     `.b64` sidecar is created/updated or deleted within about 150ms,
+     automatically, for as long as the watcher is running. This replaces
+     manually running `scripts\encode-assets.bat` after every asset swap.
+   - **Live-reloads the browser.** Save any `.html`, `.css`, or `.js` file
+     under `public/` (including `public/modules/`) and every open browser
+     tab refreshes itself a moment later — see
+     `public/modules/liveReload.js` for the small client this relies on,
+     which connects to the watcher's Server-Sent Events endpoint on port
+     `3001`.
+
+   Neither of these needed the BSL server to restart in the first place —
+   `src/http.bzg` already reads every file fresh from disk on each request
+   (nothing is cached in memory), so code edits were always live on the
+   *next request*; the watcher's live-reload piece just makes the browser
+   send that next request automatically instead of you pressing refresh.
+
+   Why this is a separate Node process rather than being built into
+   `src/http.bzg` itself: BSL has no documented file-watching, timer, or
+   background-thread primitive to build a watcher on top of, and the
+   server's `while(1) socket_accept(...)` loop is single-threaded and
+   blocking, so it can't watch the filesystem and serve requests at the
+   same time. `scripts/dev-watch.js` only ever touches the filesystem and
+   a dev-only port (`3001`) — it never talks to port `3000` or changes
+   anything about how `src/http.bzg` serves a request.
+
+Close the watcher's window (or Ctrl+C) to stop it; close the other window
+to stop the BSL server. They're independent — stopping one doesn't affect
+the other, and you can run `bonezegei src/http.bzg` on its own anytime you
+don't want the watcher active.
+
+Other scripts:
 
 | Script | What it does |
 |---|---|
-| `npm run encode-assets` | Just re-runs `scripts\encode-assets.bat` — regenerate the `.b64` files without starting the server |
-| `npm run dev:skip-encode` | Skips straight to `bonezegei src/http.bzg` — use when you know the `.b64` files are already current |
-
-Either way, there's only one long-running process, on port `3000` — `npm
-run dev` and `bonezegei src/http.bzg` are equivalent once the encode step
-is done.
+| `npm run dev-watch` | Just the watcher (`node scripts/dev-watch.js`) — use if you're starting `bonezegei src/http.bzg` yourself in another window |
+| `npm run server-only` | Just `bonezegei src/http.bzg`, no watcher, no encode step |
+| `npm run encode-assets` | One-shot `scripts\encode-assets.bat` run — regenerate every `.b64` file once via `certutil`, no server, no watching |
+| `npm run dev:once` | The original behavior: `encode-assets` then `bonezegei src/http.bzg`, sequentially, no watcher |
 
 A successful start prints `Server running on http://localhost:3000/` in
 the terminal.

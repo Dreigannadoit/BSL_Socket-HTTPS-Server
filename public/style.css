@@ -510,7 +510,7 @@ button.mode_selector_button:hover {
     height: 210px;
     width: 150px;
     
-    transform:rotateX(-11deg) rotateY(-60deg) translate3d(1100px, 95px, -103px) translate(-50%, -50%) ;
+    transform:rotateX(-11deg) rotateY(-60deg) translate3d(1070px, 95px, -103px) translate(-50%, -50%) ;
 
 }
 

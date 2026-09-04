@@ -3,7 +3,9 @@
     "private": true,
     "scripts": {
         "encode-assets": "scripts\\encode-assets.bat",
-        "dev": "npm run encode-assets && bonezegei src/http.bzg",
-        "dev:skip-encode": "bonezegei src/http.bzg"
+        "dev": "scripts\\dev.bat",
+        "dev-watch": "node scripts/dev-watch.js",
+        "server-only": "bonezegei src/http.bzg",
+        "dev:once": "npm run encode-assets && bonezegei src/http.bzg"
     }
 }

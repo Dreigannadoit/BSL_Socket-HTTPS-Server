@@ -28,7 +28,7 @@ export function createPhysicsWorld() {
     // Floor bounce — reduced restitution vs. walls
     const floorContact = new CANNON.ContactMaterial(floorMaterial, ballMaterial, {
         friction: 0.55,
-        restitution: 0.4,
+        restitution: 0.6,
         contactEquationStiffness: 1e8,
         contactEquationRelaxation: 1,
     });
