@@ -3,73 +3,31 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Maze Ball — About</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
 </head>
 
 <body class="about">
-    <div class="hotspot-content-2">
-        <div class="main_wrapper">
-            <h1>Hello, World!</h1>
+    <div id="hud">WASD / Arrow keys to roll. Loading...</div>
+    <div id="fade-overlay"></div>
+    <div id="hotspot-popup"></div>
 
-            <br>
-
-            <div class="slider">
-                <div class="slide_1 slide">
-                    <img data-b64-src="assets/FreeRoam.png" data-b64-type="image/png" alt="">
-                </div>
-                <div class="slide_2 slide">
-                    <p>This Project is to show case BSL capabilities in fetching a heavy files.</p>
-                    <br>
-                    <button>
-                        <svg class="w-10 h-10 text-gray-800 dark:text-white" aria-hidden="true"
-                            xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="currentColor"
-                            viewBox="0 0 24 24">
-                            <path fill-rule="evenodd"
-                                d="M8.6 5.2A1 1 0 0 0 7 6v12a1 1 0 0 0 1.6.8l8-6a1 1 0 0 0 0-1.6l-8-6Z"
-                                clip-rule="evenodd" />
-                        </svg>
-
-                    </button>
-                </div>
-            </div>
-
-        </div>
-
-        <div class="side_wrapper">
-            <div class="side">
-                <h1>HOTSPOT</h1>
-                <h1>2</h1>
-            </div>
-        </div>
-    </div>
-
-    <img data-b64-src="assets/Hotspot_2.png" data-b64-type="image/png" alt="">
-
-    <script type="module">
-        import { fetchAssetBlobURL } from "/modules/binaryAssetLoader.js";
-
-        document.querySelectorAll("[data-b64-src]").forEach((el) => {
-            const file = el.getAttribute("data-b64-src");
-            const type = el.getAttribute("data-b64-type");
-            fetchAssetBlobURL("/" + file, type)
-                .then((blobUrl) => {
-                    el.src = blobUrl;
-                    if (el.tagName === "VIDEO") el.load();
-                })
-                .catch((err) => console.error(`Failed to load ${file}:`, err));
-        });
-    </script>
-
+    <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+  }
+}
+</script>
+    <script type="module" src="./about.js"></script>
     <!-- Dev-only: auto-refreshes the page when scripts/dev-watch.js sees a
-         saved html/css/js change. Harmless if that watcher is not running. -->
+         saved html/css/js change. Harmless if that watcher isn't running. -->
     <script type="module" src="/modules/liveReload.js"></script>
-
 </body>
 
 </html>

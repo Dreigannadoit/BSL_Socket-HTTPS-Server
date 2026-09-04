@@ -10,7 +10,7 @@ import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 // so it can compute fall bounds. (Ground fog is no longer authored
 // per-level — see PlayerFog, which tracks the player's height everywhere
 // instead of a fixed marker.)
-export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud }) {
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud, levelUrl = GLB_URL }) {
     const loader = new GLTFLoader();
 
     function onLevelGLTFLoaded(gltf) {
@@ -125,11 +125,11 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brand
         hud.textContent = "Failed to load maze_platform.glb — check console.";
     }
 
-    // GLTFLoader.load() would fetch GLB_URL directly, which is the raw
+    // GLTFLoader.load() would fetch levelUrl directly, which is the raw
     // (truncated-in-transit) .glb — fetch the base64 sidecar and decode
     // it ourselves instead, then hand GLTFLoader the intact bytes via
     // .parse() rather than a URL.
-    fetchBinaryAsset(GLB_URL)
+    fetchBinaryAsset(levelUrl)
         .then((buffer) => new Promise((resolve, reject) => {
             loader.parse(buffer, "", resolve, reject);
         }))

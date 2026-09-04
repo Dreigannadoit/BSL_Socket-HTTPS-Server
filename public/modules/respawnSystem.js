@@ -41,12 +41,26 @@ export class RespawnSystem {
     // if the map changes size/scale later. Anything this far below the
     // lowest collision mesh definitely isn't on the map anymore.
     setLevelBounds(collisionRoot, spawnPos) {
+        let boundsMinY;
         if (collisionRoot) {
             const bounds = new THREE.Box3().setFromObject(collisionRoot);
-            this.fallThresholdY = bounds.min.y - FALL_MARGIN;
+            boundsMinY = bounds.min.y;
         } else {
-            this.fallThresholdY = spawnPos.y - FALL_MARGIN;
+            boundsMinY = spawnPos.y;
         }
+
+        // Guard against "shallow" levels (e.g. about_environment.glb) whose
+        // lowest collision mesh sits only a few meters below the floor.
+        // Without this, fadeTriggerY (fallThreshold + a fixed 30m margin)
+        // can end up ABOVE the player's spawn height, so the fade-to-black
+        // starts the instant the level loads and never clears, since
+        // checkRespawn() only resets it once the ball actually crosses
+        // fallThresholdY — which never happens while standing on the
+        // ground. Clamping boundsMinY guarantees fadeTriggerY always stays
+        // below spawn height, no matter how flat the level's geometry is.
+        boundsMinY = Math.min(boundsMinY, spawnPos.y - FADE_TRIGGER_MARGIN - FALL_MARGIN - 1);
+
+        this.fallThresholdY = boundsMinY - FALL_MARGIN;
         this.fadeTriggerY = this.fallThresholdY + FADE_TRIGGER_MARGIN;
 
         this.spawnPosition.copy(spawnPos);

@@ -1,6 +1,10 @@
 // ── Asset locations ──
 export const ASSET_BASE = "/assets/";
 export const GLB_URL = ASSET_BASE + "maze_platform_high.glb";
+// Alternate world loaded on the about page (about.html/about.js) instead of
+// the normal maze — same loadLevel()/game logic, just a different GLB. See
+// main.js's startGame({ levelUrl }).
+export const ABOUT_GLB_URL = ASSET_BASE + "about_environment.glb";
 export const BALL_GLB_URL = ASSET_BASE + "ball.glb";
 // "Nebula Skybox 16k" by Jungle Jim (sketchfab.com/jungle_jim), CC-BY-4.0
 // (https://creativecommons.org/licenses/by/4.0/) — license requires
