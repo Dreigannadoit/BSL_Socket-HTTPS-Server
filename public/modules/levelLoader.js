@@ -10,7 +10,7 @@ import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 // so it can compute fall bounds. (Ground fog is no longer authored
 // per-level — see PlayerFog, which tracks the player's height everywhere
 // instead of a fixed marker.)
-export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud, levelUrl = GLB_URL }) {
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl = GLB_URL }) {
     const loader = new GLTFLoader();
 
     function onLevelGLTFLoaded(gltf) {
@@ -115,6 +115,14 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brand
             // StartTrigger / EndTrigger / Collectables — powers the
             // selectable game modes (Free Roam / Speedrun / Time Trial).
             gameModeManager.onLevelLoaded({ root });
+
+            // MovableObjectSection(s) — pushable, gravity-affected props
+            // plus their per-section reset trigger. Scans the whole root
+            // rather than a single named node since any number of sections
+            // can be authored — see movableObjectSystem.js.
+            if (movableObjectSystem) {
+                movableObjectSystem.setup(root);
+            }
 
             hud.textContent =
                 `Loaded (5.6x world). ${colliderCount} collision meshes.`;

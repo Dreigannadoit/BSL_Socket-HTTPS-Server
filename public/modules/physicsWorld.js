@@ -70,5 +70,9 @@ export function createPhysicsWorld() {
         return body;
     }
 
+    // floorMaterial/wallMaterial are returned alongside ballMaterial so
+    // other systems (e.g. MovableObjectSystem) can register their own
+    // ContactMaterial pairs against the world's existing materials instead
+    // of falling back to world.defaultContactMaterial's bouncier tuning.
     return { world, floorMaterial, wallMaterial, ballMaterial, addTrimeshCollider };
 }

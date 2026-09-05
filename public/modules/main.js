@@ -16,6 +16,8 @@ import { HotspotSystem } from "./hotspotSystem.js";
 import { DevTools } from "./devTools.js";
 import { GameModeManager } from "./gameModeManager.js";
 import { GameModeUI } from "./gameModeUI.js";
+import { MovableObjectSystem } from "./movableObjectSystem.js";
+import { MovableObjectBillboard } from "./movableObjectBillboard.js";
 import { loadLevel } from "./levelLoader.js";
 import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL } from "./config.js";
 
@@ -60,7 +62,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     const { updateSunFollow } = createLighting(scene);
 
     // ── Physics world ──
-    const { world, ballMaterial, addTrimeshCollider } = createPhysicsWorld();
+    const { world, floorMaterial, wallMaterial, ballMaterial, addTrimeshCollider } = createPhysicsWorld();
 
     // ── Ball (render + physics) ──
     const { ballMesh, ballBody, ballGlow } = createBall(scene, world, ballMaterial);
@@ -114,6 +116,18 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         glowPath,
     });
 
+    // ── Movable objects (pushable props + per-section reset trigger) ──
+    const movableObjectBillboard = new MovableObjectBillboard(scene, camera, renderer.domElement);
+    const movableObjectSystem = new MovableObjectSystem({
+        scene,
+        world,
+        floorMaterial,
+        wallMaterial,
+        ballMaterial,
+        player,
+        ui: movableObjectBillboard,
+    });
+
     // ── Dev tools panel (right-middle of screen) ──
     // Every feature in here (hotspot teleport, freeze, hotspot hide/restore/
     // force-trigger, mode switcher, Time Trial cheats) is off/inert until
@@ -121,7 +135,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     const devTools = new DevTools({ ballBody, hotspotSystem, respawnSystem, player, gameModeManager, camera });
 
     // ── Level ──
-    loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, hud, levelUrl });
+    loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl });
 
     // ── Resize ──
     window.addEventListener("resize", () => {
@@ -171,6 +185,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         hotspotSystem.update(ballMesh.position);
         hotspotSystem.updateGlow(clock.elapsedTime);
         gameModeManager.update(dt, ballMesh.position, clock.elapsedTime);
+        movableObjectSystem.update(ballMesh.position, clock.elapsedTime);
         // One frame behind (uses this frame's hotspot check, applied to next
         // frame's movement) — same lag every other hotspot-driven system here
         // already has, and not perceptible at 60fps.
@@ -181,6 +196,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
             position: devTools.manualCameraPosition,
             rotationRadians: devTools.getManualCameraRotationRadians(),
         });
+        movableObjectBillboard.update(camera);
         updateSky(camera.position, dt);
         bloomRenderer.setHotspotActive(devTools.grayscalePreview || hotspotSystem.isActive);
         bloomRenderer.render();

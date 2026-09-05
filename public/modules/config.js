@@ -336,3 +336,78 @@ export const END_RING_BASE_OPACITY = 0.85;
 export const END_WALL_HEIGHT = 80;
 export const END_WALL_OPACITY = 0.1;
 export const END_WALL_EMISSIVE_INTENSITY = 1.1;
+
+// ── Movable objects (pushable props + per-section reset trigger) ──
+// Level-authored group names: any number of "MovableObjectSection"-prefixed
+// nodes can exist (matched by prefix, not exact equality — Blender's GLTF
+// exporter auto-suffixes duplicate object names with ".001", ".002", etc,
+// and the level author may also use an explicit "_1"/"_2" convention; a
+// strict equality check would silently miss every section after the
+// first). Each section contains a "MovableObjects" group (the actual
+// gravity-affected, ball-pushable Cube/Sphere meshes) and a sibling
+// "MovableObjectResetTrigger" cylinder marker. Rolling onto a section's own
+// trigger pops up a "reset?" confirmation that only snaps THAT section's
+// objects back to their authored positions — see movableObjectSystem.js.
+//
+// The INNER names need prefix matching too, for a subtler reason than the
+// section names: three.js's GLTFLoader calls parser.createUniqueName() on
+// every node in the file, which auto-suffixes ANY name it's already seen
+// elsewhere in the document with "_1", "_2", etc. — regardless of nesting.
+// Since both sections' "MovableObjects"/"MovableObjectResetTrigger" groups
+// share identical names, the loader silently renames the second section's
+// copies to "MovableObjects_1"/"MovableObjectResetTrigger_1" at load time,
+// even though the source .glb has them both named identically. Confirmed
+// by actually loading this project's GLB through GLTFLoader and inspecting
+// the parsed scene graph.
+export const MOVABLE_SECTION_PATTERN = /^MovableObjectSection/i;
+export const MOVABLE_OBJECTS_GROUP_PATTERN = /^MovableObjects/i;
+export const MOVABLE_RESET_TRIGGER_PATTERN = /^MovableObjectResetTrigger/i;
+
+// Physics tuning for the pushable props — deliberately light relative to
+// the world (flat mass, not size-scaled, same "just pick a value that
+// feels right" approach as the ball's own fixed 0.4kg in ball.js) so the
+// ball can actually shove them, with enough damping/friction that they
+// settle rather than sliding or spinning forever once let go.
+export const MOVABLE_MASS = 0.55;
+export const MOVABLE_LINEAR_DAMPING = 0.5;
+export const MOVABLE_ANGULAR_DAMPING = 0.6;
+export const MOVABLE_FRICTION = 0.65;
+export const MOVABLE_RESTITUTION = 0.1;      // vs. floor/wall/each other — barely bouncy, so props settle
+export const MOVABLE_BALL_RESTITUTION = 0.2; // vs. the ball specifically — a touch livelier on contact
+
+// Safety clamp applied after every physics step: a tightly packed stack of
+// many touching props (e.g. a block tower) is a worst case for an
+// iterative solver, and a single under-converged step can otherwise inject
+// enough corrective velocity into one prop to tunnel through geometry
+// before the next step's collision check ever sees it. Clamping is cheap
+// insurance against that regardless of how well-tuned the contact
+// materials are.
+export const MOVABLE_MAX_LINEAR_SPEED = 12;
+export const MOVABLE_MAX_ANGULAR_SPEED = 20;
+
+// Every prop — including the "Cube" ones — gets a CANNON.Sphere collider,
+// not a Box. This isn't a style choice: cannon-es's Narrowphase (see its
+// own COLLISION_TYPES dispatch table) only ever implements sphere-vs-
+// trimesh and plane-vs-trimesh; box-vs-trimesh and convex-vs-trimesh are
+// not implemented at all, so a Box shape can NEVER collide with this
+// level's Floor/Walls (both built as CANNON.Trimesh in physicsWorld.js) —
+// it's not a tuning problem, that collision pair is a silent no-op in this
+// engine, full stop. That's exactly why the ball (already a Sphere) has
+// always collided with them fine while a Box-shaped prop fell straight
+// through. Using an INSCRIBED sphere (radius = the geometry's smallest
+// half-extent, not the circumscribed bounding sphere) keeps a resting
+// cube's visual bottom face flush with the real floor instead of floating
+// or sinking. The trade-off: cube props roll a little more freely than a
+// true box would, since they're spheres for collision purposes — everyone
+// keeps using the level's own real Floor/Walls geometry, with nothing
+// extra added to the scene.
+export const MOVABLE_RADIUS_SHRINK = 1.0; // multiplier on the inscribed radius, tune down slightly if props visually clip into each other
+
+// Meters directly above a MovableObjectResetTrigger's authored position
+// that its "reset?" confirmation popup is anchored.
+export const MOVABLE_RESET_POPUP_HEIGHT = 1;
+
+// Reset-trigger marker glow — amber rather than GLOW_COLOR's blue, so it
+// reads as a distinct "utility" marker rather than another neon-path
+// hotspot (same emissive/bloom material trick as HotspotSystem._setupGlow).
+export const MOVABLE_RESET_GLOW_COLOR = 0xffaa33;
