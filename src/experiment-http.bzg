@@ -3,7 +3,7 @@
 // JS/C syntax). Run this and report back EXACTLY what happens:
 // - Does it throw an argument-count/type error? Paste it verbatim.
 // - Does it print "Listening" and hang (a good sign)?
-// - If it hangs, open http://localhost:3000/ in a browser and report
+// - If it hangs, open http://localhost:5050/ in a browser and report
 //   what shows up in the terminal and in the browser.
 include("lib/http.bzg");
 
@@ -16,6 +16,6 @@ function handler(req, res) {
     res.send("Hello from createHTTPServer!");
 }
 
-print("Attempting to start server on port 3000...\n");
-var server = createHTTPServer(3000, handler);
+print("Attempting to start server on port 5050...\n");
+var server = createHTTPServer(5050, handler);
 print("createHTTPServer() returned: " + server + "\n");

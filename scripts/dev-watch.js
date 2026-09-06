@@ -1,7 +1,7 @@
 // scripts/dev-watch.js
 //
 // Dev-only companion process. Run this ALONGSIDE `bonezegei src/http.bzg`
-// (it does not replace it, and never touches port 3000). It does two
+// (it does not replace it, and never touches port 5050). It does two
 // things for the length of the dev session:
 //
 //   1. Asset watcher — keeps every binary asset's ".b64" sidecar in sync
@@ -34,7 +34,7 @@ const http = require("http");
 const ROOT = path.join(__dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 const ASSETS_DIR = path.join(PUBLIC_DIR, "assets");
-const LIVERELOAD_PORT = 3001;
+const LIVERELOAD_PORT = 5051;
 
 // ── asset encoding ──────────────────────────────────────────────────────
 
@@ -171,8 +171,8 @@ function watchLiveReload() {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             Connection: "keep-alive",
-            // The page is served from the BSL server on :3000; this SSE
-            // endpoint is a different origin (:3001), so it needs CORS.
+            // The page is served from the BSL server on :5050; this SSE
+            // endpoint is a different origin (:5051), so it needs CORS.
             "Access-Control-Allow-Origin": "*",
         });
         res.write("\n");

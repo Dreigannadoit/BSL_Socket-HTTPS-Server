@@ -363,15 +363,37 @@ export const MOVABLE_SECTION_PATTERN = /^MovableObjectSection/i;
 export const MOVABLE_OBJECTS_GROUP_PATTERN = /^MovableObjects/i;
 export const MOVABLE_RESET_TRIGGER_PATTERN = /^MovableObjectResetTrigger/i;
 
-// Physics tuning for the pushable props — deliberately light relative to
-// the world (flat mass, not size-scaled, same "just pick a value that
-// feels right" approach as the ball's own fixed 0.4kg in ball.js) so the
-// ball can actually shove them, with enough damping/friction that they
-// settle rather than sliding or spinning forever once let go.
-export const MOVABLE_MASS = 0.55;
-export const MOVABLE_LINEAR_DAMPING = 0.5;
-export const MOVABLE_ANGULAR_DAMPING = 0.6;
-export const MOVABLE_FRICTION = 0.65;
+// Cannon-es collision-filter bit for movable-prop bodies. Physical
+// collision (pushing, resting, etc.) is untouched by this — it only comes
+// into play where something explicitly passes a collisionFilterMask, which
+// today is exactly one place: playerController.js's ground-detection
+// raycast. That ray used to hit everything (mask -1), including movable
+// props — and since props are now roughly ball-sized (see
+// MOVABLE_MIN_RADIUS_FACTOR) for pushability, the ball's downward ray would
+// often land on the curved top of a nearby prop and read it as ground,
+// which fed straight into the same slope-following code real ramps use —
+// so the ball would climb up onto a prop it was trying to push instead of
+// pushing it. Giving props their own bit and having that one raycast
+// explicitly exclude it stops the ray from ever "seeing" a prop as ground,
+// while everything else about them (physical collision, being pushed,
+// resting on the real floor) works exactly as before.
+export const MOVABLE_COLLISION_GROUP = 2;
+
+// Physics tuning for the pushable props. Kept light and low-friction/
+// low-damping relative to the ball so a push actually carries them — the
+// ball's own movement is driven by directly setting ballBody.velocity every
+// frame (see playerController.js's _applyInput/_applyDeceleration), not by
+// applying forces/impulses, so the ball itself barely slows down when it
+// hits a prop; how "hard to move" a prop feels comes down entirely to ITS
+// friction/damping/mass eating the momentum transferred on contact, not the
+// ball's mass at all. Verified with a direct push-distance test: this
+// tuning moves a prop ~2.6x farther in the same push time than an earlier,
+// heavier-feeling pass.
+export const MOVABLE_MASS = 0.15;
+export const MOVABLE_LINEAR_DAMPING = 0.05;
+export const MOVABLE_ANGULAR_DAMPING = 0.3;
+export const MOVABLE_FRICTION = 0.15;         // vs. floor/wall/each other
+export const MOVABLE_BALL_FRICTION = 0.35;    // vs. the ball specifically — a bit more grip so a push "bites" instead of the ball just slipping past
 export const MOVABLE_RESTITUTION = 0.1;      // vs. floor/wall/each other — barely bouncy, so props settle
 export const MOVABLE_BALL_RESTITUTION = 0.2; // vs. the ball specifically — a touch livelier on contact
 
@@ -386,22 +408,44 @@ export const MOVABLE_MAX_LINEAR_SPEED = 12;
 export const MOVABLE_MAX_ANGULAR_SPEED = 20;
 
 // Every prop — including the "Cube" ones — gets a CANNON.Sphere collider,
-// not a Box. This isn't a style choice: cannon-es's Narrowphase (see its
-// own COLLISION_TYPES dispatch table) only ever implements sphere-vs-
-// trimesh and plane-vs-trimesh; box-vs-trimesh and convex-vs-trimesh are
-// not implemented at all, so a Box shape can NEVER collide with this
-// level's Floor/Walls (both built as CANNON.Trimesh in physicsWorld.js) —
-// it's not a tuning problem, that collision pair is a silent no-op in this
-// engine, full stop. That's exactly why the ball (already a Sphere) has
-// always collided with them fine while a Box-shaped prop fell straight
-// through. Using an INSCRIBED sphere (radius = the geometry's smallest
-// half-extent, not the circumscribed bounding sphere) keeps a resting
-// cube's visual bottom face flush with the real floor instead of floating
-// or sinking. The trade-off: cube props roll a little more freely than a
-// true box would, since they're spheres for collision purposes — everyone
-// keeps using the level's own real Floor/Walls geometry, with nothing
-// extra added to the scene.
-export const MOVABLE_RADIUS_SHRINK = 1.0; // multiplier on the inscribed radius, tune down slightly if props visually clip into each other
+// not a Box. This isn't a style choice: I verified it directly (drop a Box
+// AND a ConvexPolyhedron built from that same box onto a static Trimesh in
+// isolation — both fall straight through with zero contacts ever
+// generated, while a Sphere settles correctly). cannon-es's Narrowphase
+// only ever implements sphere-vs-trimesh and plane-vs-trimesh; box-vs-
+// trimesh and convex-vs-trimesh are dead code paths in this library
+// version. Since this level's Floor/Walls group (physicsWorld.js's
+// addTrimeshCollider) IS a CANNON.Trimesh, a Box-shaped prop can never
+// collide with it — full stop, not a tuning problem, and not fixable
+// without either changing the Floor/Walls representation itself or adding
+// separate proxy collision geometry (both of which are off the table).
+//
+// The sphere is also given `fixedRotation: true` (see
+// _createMovableObject), so despite being a sphere under the hood it
+// SLIDES along the floor rather than rolling/tumbling like a ball — no
+// wasted momentum spinning it up, and no rolling-away-in-a-random-direction
+// behavior a real box wouldn't have either. That's the closest this engine
+// can get to "acts like a pushable box" while still using a shape that
+// actually touches the real floor.
+//
+// Using an INSCRIBED sphere (radius = the geometry's smallest half-extent,
+// not the circumscribed bounding sphere) keeps a resting cube's visual
+// bottom face flush with the real floor instead of floating or sinking —
+// but ALSO empirically caused "hard to push": I tested a range of prop
+// radii against the ball's own (0.35) radius, ball speed held constant,
+// and there's a sharp cutoff right around matching the ball's radius —
+// below it the ball just rides up and over the smaller sphere (their
+// centers are far enough apart in height that the contact normal points
+// mostly upward, not sideways) and barely nudges it; at/above it, the push
+// works properly. So the radius is floored at BALL_RADIUS * this factor —
+// small props (this level has several at half the ball's size) end up
+// hovering slightly above the true floor as a result. That's a real,
+// visible trade-off for making them reliably pushable; lower this factor
+// (and accept weaker pushing on the smallest props) if the hover reads
+// wrong once you see it in place.
+export const MOVABLE_MIN_RADIUS_FACTOR = 1.0; // multiplied by BALL_RADIUS to get the floor on prop collision radius
+export const MOVABLE_RADIUS_SHRINK = 1.0; // multiplier on the inscribed radius before the BALL_RADIUS floor above is applied
+
 
 // Meters directly above a MovableObjectResetTrigger's authored position
 // that its "reset?" confirmation popup is anchored.

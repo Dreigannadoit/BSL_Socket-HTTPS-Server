@@ -8,7 +8,20 @@ export function createPhysicsWorld() {
         gravity: new CANNON.Vec3(0, -9.82, 0),
     });
     world.broadphase = new CANNON.SAPBroadphase(world);
-    world.allowSleep = false;
+    // Sleeping is enabled world-wide so resting bodies (in practice, that's
+    // the pushable movable-object props — see movableObjectSystem.js) stop
+    // being fed through narrowphase/solver every frame once they settle.
+    // Measured impact: a settled 64-prop stack was costing ~15ms/physics
+    // step with sleep disabled (roughly 20x the baseline cost) — sleep
+    // drops that back down once nothing is moving. The ball is explicitly
+    // exempted from sleep at its own body (ball.js sets allowSleep: false)
+    // since its movement is driven by directly setting its velocity from
+    // player input rather than physics forces, and a sleeping body won't
+    // act on an externally-set velocity until something wakes it — so this
+    // flip is safe for the ball specifically, and the only two dynamic
+    // (mass > 0) bodies in the whole game are the ball and the movable
+    // props, so there's nothing else in the game this can affect.
+    world.allowSleep = true;
     world.solver.iterations = 30;
     world.solver.tolerance = 0.00005;
 

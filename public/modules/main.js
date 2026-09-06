@@ -124,7 +124,6 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         floorMaterial,
         wallMaterial,
         ballMaterial,
-        player,
         ui: movableObjectBillboard,
     });
 

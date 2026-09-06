@@ -11,11 +11,14 @@ import {
     MOVABLE_LINEAR_DAMPING,
     MOVABLE_ANGULAR_DAMPING,
     MOVABLE_FRICTION,
+    MOVABLE_BALL_FRICTION,
     MOVABLE_RESTITUTION,
     MOVABLE_BALL_RESTITUTION,
     MOVABLE_MAX_LINEAR_SPEED,
     MOVABLE_MAX_ANGULAR_SPEED,
     MOVABLE_RADIUS_SHRINK,
+    MOVABLE_MIN_RADIUS_FACTOR,
+    MOVABLE_COLLISION_GROUP,
     MOVABLE_RESET_POPUP_HEIGHT,
     MOVABLE_RESET_GLOW_COLOR,
 } from "./config.js";
@@ -29,10 +32,9 @@ import {
 // same isolation GameModeManager's Start/EndTrigger pair doesn't need but
 // HotspotSystem's per-node registration already models well.
 export class MovableObjectSystem {
-    constructor({ scene, world, floorMaterial, wallMaterial, ballMaterial, player, ui }) {
+    constructor({ scene, world, floorMaterial, wallMaterial, ballMaterial, ui }) {
         this.scene = scene;
         this.world = world;
-        this.player = player;
         this.ui = ui;
 
         this.sections = []; // { objects: [{mesh,body,initialPosition,initialQuaternion}], trigger: {...}|null, inside }
@@ -59,11 +61,11 @@ export class MovableObjectSystem {
         // floor trimesh before the next step's collision check would have
         // caught it.
         this.movableMaterial = new CANNON.Material("movable");
-        const contactBase = { friction: MOVABLE_FRICTION, contactEquationStiffness: 1e8, contactEquationRelaxation: 3 };
-        world.addContactMaterial(new CANNON.ContactMaterial(this.movableMaterial, floorMaterial, { ...contactBase, restitution: MOVABLE_RESTITUTION }));
-        world.addContactMaterial(new CANNON.ContactMaterial(this.movableMaterial, wallMaterial, { ...contactBase, restitution: MOVABLE_RESTITUTION }));
-        world.addContactMaterial(new CANNON.ContactMaterial(this.movableMaterial, ballMaterial, { ...contactBase, restitution: MOVABLE_BALL_RESTITUTION }));
-        world.addContactMaterial(new CANNON.ContactMaterial(this.movableMaterial, this.movableMaterial, { ...contactBase, restitution: MOVABLE_RESTITUTION }));
+        const contactBase = { contactEquationStiffness: 1e8, contactEquationRelaxation: 3 };
+        world.addContactMaterial(new CANNON.ContactMaterial(this.movableMaterial, floorMaterial, { ...contactBase, friction: MOVABLE_FRICTION, restitution: MOVABLE_RESTITUTION }));
+        world.addContactMaterial(new CANNON.ContactMaterial(this.movableMaterial, wallMaterial, { ...contactBase, friction: MOVABLE_FRICTION, restitution: MOVABLE_RESTITUTION }));
+        world.addContactMaterial(new CANNON.ContactMaterial(this.movableMaterial, ballMaterial, { ...contactBase, friction: MOVABLE_BALL_FRICTION, restitution: MOVABLE_BALL_RESTITUTION }));
+        world.addContactMaterial(new CANNON.ContactMaterial(this.movableMaterial, this.movableMaterial, { ...contactBase, friction: MOVABLE_FRICTION, restitution: MOVABLE_RESTITUTION }));
     }
 
     // Called once from levelLoader right after the GLB has loaded and been
@@ -102,8 +104,34 @@ export class MovableObjectSystem {
                 objectsRoot.traverse((child) => {
                     if (child.isMesh) meshes.push(child);
                 });
-                for (const mesh of meshes) {
-                    section.objects.push(this._createMovableObject(mesh));
+
+                // Precompute each mesh's distance to its nearest neighbor
+                // BEFORE creating any bodies, so _createMovableObject can
+                // cap how far it's allowed to grow the collision radius for
+                // pushability (see MOVABLE_MIN_RADIUS_FACTOR in config.js).
+                // Without this cap, tightly packed props (e.g. a stacked
+                // tower where neighbors sit ~0.35m apart) would end up with
+                // radii that overlap their neighbors by nearly double the
+                // instant they're created, and the solver "explodes" the
+                // whole stack apart on the very first frame trying to
+                // resolve all that interpenetration at once.
+                const worldPositions = meshes.map((mesh) => {
+                    mesh.updateWorldMatrix(true, false);
+                    const pos = new THREE.Vector3();
+                    mesh.getWorldPosition(pos);
+                    return pos;
+                });
+                const nearestNeighborDistances = worldPositions.map((pos, i) => {
+                    let nearest = Infinity;
+                    for (let j = 0; j < worldPositions.length; j++) {
+                        if (j === i) continue;
+                        nearest = Math.min(nearest, pos.distanceTo(worldPositions[j]));
+                    }
+                    return nearest;
+                });
+
+                for (let i = 0; i < meshes.length; i++) {
+                    section.objects.push(this._createMovableObject(meshes[i], nearestNeighborDistances[i]));
                 }
             } else {
                 console.warn(`"${sectionNode.name}": no "MovableObjects*" group found — nothing to make movable.`);
@@ -133,9 +161,15 @@ export class MovableObjectSystem {
     // level's Trimesh Floor/Walls, so a Box collider here would silently
     // never touch them at all. The radius is the geometry's smallest
     // half-extent (an INSCRIBED sphere, not the bounding/circumscribed
-    // one) so a resting cube's visual bottom face lines up flush with the
-    // real floor instead of floating above it.
-    _createMovableObject(mesh) {
+    // one), floored at roughly BALL_RADIUS for pushability (see
+    // MOVABLE_MIN_RADIUS_FACTOR's comment) — but capped at just under half
+    // of `nearestNeighborDistance` so that floor-raise can never make two
+    // neighboring props overlap more than they were authored to. Without
+    // that cap, tightly packed props (e.g. a stacked tower with ~0.35m
+    // spacing) would all suddenly overlap their neighbors by nearly double
+    // the instant they're created, and the very first physics step would
+    // "explode" the whole stack apart trying to resolve it.
+    _createMovableObject(mesh, nearestNeighborDistance = Infinity) {
         mesh.updateWorldMatrix(true, false);
 
         const worldPos = new THREE.Vector3();
@@ -151,7 +185,21 @@ export class MovableObjectSystem {
             (size.y / 2) * worldScale.y,
             (size.z / 2) * worldScale.z
         );
-        const radius = Math.min(halfExtents.x, halfExtents.y, halfExtents.z) * MOVABLE_RADIUS_SHRINK;
+        const inscribedRadius = Math.min(halfExtents.x, halfExtents.y, halfExtents.z) * MOVABLE_RADIUS_SHRINK;
+        const desiredRadius = Math.max(inscribedRadius, BALL_RADIUS * MOVABLE_MIN_RADIUS_FACTOR);
+        // 0.48 rather than 0.5 leaves a small safety gap instead of exactly
+        // touching, which avoids day-one jitter from floating-point contact
+        // right at the boundary.
+        const neighborSafeRadius = Number.isFinite(nearestNeighborDistance) ? nearestNeighborDistance * 0.48 : Infinity;
+        const radius = Math.min(desiredRadius, Math.max(neighborSafeRadius, inscribedRadius));
+
+        // A visually round "Sphere" prop should actually roll like one —
+        // forcing fixedRotation on every prop (regardless of its real
+        // shape) made round props slide across the floor dead straight
+        // with no spin at all, which looks wrong for something that's
+        // supposed to be a ball. Cube-named props keep fixedRotation so
+        // they slide rather than tumble/roll like a ball would.
+        const isRoundProp = /sphere/i.test(mesh.name);
 
         const body = new CANNON.Body({
             mass: MOVABLE_MASS,
@@ -159,14 +207,35 @@ export class MovableObjectSystem {
             material: this.movableMaterial,
             linearDamping: MOVABLE_LINEAR_DAMPING,
             angularDamping: MOVABLE_ANGULAR_DAMPING,
-            // Explicit rather than relying on the world-level setting
-            // (physicsWorld.js sets world.allowSleep = false already, but
-            // per-body defaults to true) — a sleeping prop wouldn't notice
-            // its position/velocity being overwritten by _resetSection().
-            allowSleep: false,
+            fixedRotation: !isRoundProp,
+            // Left at its default (true) rather than forced false — see
+            // physicsWorld.js's world.allowSleep comment for why letting
+            // props sleep once they settle matters a lot for performance.
+            // _resetSection() calls body.wakeUp() explicitly, so a sleeping
+            // prop still responds correctly the moment it's reset.
         });
         body.position.copy(worldPos);
         body.quaternion.copy(worldQuat);
+        // Tagged so playerController's wall-bounce/sound handler (see its
+        // _onCollide) can tell "hit a movable prop" apart from "hit a real
+        // wall". Both are physically Sphere-vs-Sphere-ish contacts with a
+        // similarly horizontal normal now that props are ball-sized (see
+        // MOVABLE_MIN_RADIUS_FACTOR), so without this tag every push
+        // registered as a wall impact: repeated bounce sounds, and the
+        // wall-hit velocity blend actively fighting the push, which is
+        // most of why pushing ever felt "heavy" or "sticky" in the first
+        // place — that was game-feel code layered on top of the physics,
+        // not the physics itself.
+        body.isMovableProp = true;
+        // Its own collision-filter bit (see MOVABLE_COLLISION_GROUP's
+        // comment in config.js) — used ONLY by playerController.js's
+        // ground-detection raycast to specifically ignore props, so the
+        // ball stops reading "standing next to a prop" as "standing on a
+        // ramp" and climbing it. Doesn't touch physical collision at all:
+        // every other body's mask is left at its default (-1, matches
+        // everything), so pushing/resting/contact with props works exactly
+        // as before.
+        body.collisionFilterGroup = MOVABLE_COLLISION_GROUP;
         this.world.addBody(body);
 
         this.scene.attach(mesh);
@@ -262,6 +331,15 @@ export class MovableObjectSystem {
             const inside = section.trigger.box.containsPoint(ballPosition);
             if (inside && !section.inside && !this.activeSection) {
                 this._openConfirm(section);
+            } else if (!inside && section.inside && this.activeSection === section) {
+                // Rolled off the trigger without answering. The player is
+                // never frozen here (see _openConfirm's comment), so unlike
+                // a modal popup they're free to just leave — auto-dismiss
+                // as an implicit "No" rather than leave a stale popup
+                // hanging in space with the section stuck as "active"
+                // (which would also block the OTHER section's trigger from
+                // ever opening until this one is resolved).
+                this._resolve(section, false);
             }
             section.inside = inside;
         }
@@ -269,7 +347,13 @@ export class MovableObjectSystem {
 
     _openConfirm(section) {
         this.activeSection = section;
-        this.player.setFrozen(true);
+        // Deliberately NOT freezing the player (no player.setFrozen(true))
+        // — rolling onto the trigger used to hard-stop the ball the moment
+        // the popup appeared, which felt like an abrupt, unintended loss of
+        // control. The popup now just floats in on top of normal play; the
+        // player can keep rolling, drive away, come back, whatever, and the
+        // confirmation stays live until they actually click Yes/No or roll
+        // off (see update()'s implicit-cancel-on-leave above).
         this.ui.show(section.trigger.popupAnchor, {
             onConfirm: () => this._resolve(section, true),
             onCancel: () => this._resolve(section, false),
@@ -279,15 +363,19 @@ export class MovableObjectSystem {
     _resolve(section, shouldReset) {
         if (shouldReset) this._resetSection(section);
         this.ui.hide();
-        this.player.setFrozen(false);
         this.activeSection = null;
     }
 
     // Snaps every object in `section` back to the transform it was
     // authored with, and kills any residual velocity/spin so it doesn't
     // immediately go tumbling off again the instant physics resumes.
+    // wakeUp() matters here specifically because props are now allowed to
+    // sleep (see physicsWorld.js) — a sleeping body excluded from the
+    // solver wouldn't otherwise notice its position was just changed out
+    // from under it.
     _resetSection(section) {
         for (const obj of section.objects) {
+            obj.body.wakeUp();
             obj.body.position.copy(obj.initialPosition);
             obj.body.quaternion.copy(obj.initialQuaternion);
             obj.body.velocity.set(0, 0, 0);

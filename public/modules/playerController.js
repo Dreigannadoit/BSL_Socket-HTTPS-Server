@@ -15,9 +15,17 @@ import {
     HOTSPOT_WOBBLE_AMPLITUDE,
     HOTSPOT_WOBBLE_FREQUENCY,
     HOTSPOT_WOBBLE_DECAY,
+    MOVABLE_COLLISION_GROUP,
     getAccelFraction,
     getStartHoldMs,
 } from "./config.js";
+// Mask for the ground-detection raycast in checkGround(): everything
+// (-1) except the movable-prop collision group — see
+// MOVABLE_COLLISION_GROUP's comment in config.js for why that ray needs to
+// ignore props specifically (otherwise the ball reads standing next to one
+// as standing on a ramp, and climbs it instead of pushing it).
+const GROUND_RAY_MASK = -1 & ~MOVABLE_COLLISION_GROUP;
+
 // Owns ground detection, rolling/skidding movement, and the wall/landing
 // bounce overlays. Exposes the state (isGrounded, reversalTimer, ...) that
 // CameraController needs to lean into skids.
@@ -115,6 +123,19 @@ export class PlayerController {
     }
 
     _onCollide(event) {
+        // A movable prop is physically a similarly ball-sized sphere now
+        // (see movableObjectSystem.js's MOVABLE_MIN_RADIUS_FACTOR), so a
+        // push against one generates a contact normal that's just as
+        // horizontal as an actual wall hit would be — without this check,
+        // every push was misread as repeatedly slamming into a wall:
+        // the bounce sound fired on every contact, and the wall-hit
+        // velocity blend below (see wallHitPending's handling) actively
+        // redirected/resisted the ball's velocity, fighting the push. The
+        // real physics contact (and the resulting push) still happens
+        // regardless — this only skips the extra game-feel layer on top,
+        // which was never meant for anything but real level geometry.
+        if (event.body.isMovableProp) return;
+
         const normal = event.contact.ni;
         if (Math.abs(normal.y) < 0.7) {
             // No wall-bounce overlay while parked on a hotspot — the
@@ -247,7 +268,7 @@ export class PlayerController {
         const result = new CANNON.RaycastResult();
         this.world.raycastClosest(from, to, {
             skipBackfaces: true,
-            collisionFilterMask: -1,
+            collisionFilterMask: GROUND_RAY_MASK,
         }, result);
 
         const wasGrounded = this.isGrounded;

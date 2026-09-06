@@ -52,6 +52,15 @@ export function createBall(scene, world, ballMaterial) {
         angularDamping: 0.02,
         ccdSpeedThreshold: 0.1,
         ccdRadius: BALL_RADIUS,
+        // Explicit, not just relying on the (now-enabled, see
+        // physicsWorld.js) world-level sleep setting: the ball's own
+        // movement is driven by directly setting ballBody.velocity every
+        // frame from player input (playerController.js), not by physics
+        // forces, and cannon-es doesn't auto-wake a sleeping body just
+        // because its .velocity was set externally — a sleeping ball could
+        // sit there ignoring input until something else woke it. Keeping it
+        // permanently exempt from sleep avoids that entirely.
+        allowSleep: false,
     });
     world.addBody(ballBody);
 

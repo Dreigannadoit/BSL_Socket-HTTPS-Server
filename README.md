@@ -16,7 +16,7 @@ Everything now runs through a single process:
 
 | Component | Role | Port |
 |---|---|---|
-| **BSL socket server** (`src/http.bzg`) | Hand-rolled HTTP server that routes `/`, `/home`, `/about`, a 404 page, and every static file under `public/` (JS modules, CSS, `.glb` models, `.mp3`/`.mp4` assets) by extension-based Content-Type | `3000` |
+| **BSL socket server** (`src/http.bzg`) | Hand-rolled HTTP server that routes `/`, `/home`, `/about`, a 404 page, and every static file under `public/` (JS modules, CSS, `.glb` models, `.mp3`/`.mp4` assets) by extension-based Content-Type | `5050` |
 
 There is no separate Node/Python asset server anymore. The ~783 KB failure
 mentioned below turned out to be a real, confirmed bug rather than a fluke:
@@ -138,7 +138,7 @@ npm run dev
 processes:
 
 1. **`bonezegei src/http.bzg`**, in its own terminal window — the actual
-   static file server, on port `3000`, completely unchanged.
+   static file server, on port `5050`, completely unchanged.
 2. **`node scripts/dev-watch.js`**, in the current window — a dev-only
    companion that watches the filesystem for you and:
    - **Auto-encodes assets.** Add, replace, or delete a binary file
@@ -151,7 +151,7 @@ processes:
      tab refreshes itself a moment later — see
      `public/modules/liveReload.js` for the small client this relies on,
      which connects to the watcher's Server-Sent Events endpoint on port
-     `3001`.
+     `5051`.
 
    Neither of these needed the BSL server to restart in the first place —
    `src/http.bzg` already reads every file fresh from disk on each request
@@ -165,7 +165,7 @@ processes:
    server's `while(1) socket_accept(...)` loop is single-threaded and
    blocking, so it can't watch the filesystem and serve requests at the
    same time. `scripts/dev-watch.js` only ever touches the filesystem and
-   a dev-only port (`3001`) — it never talks to port `3000` or changes
+   a dev-only port (`5051`) — it never talks to port `5050` or changes
    anything about how `src/http.bzg` serves a request.
 
 Close the watcher's window (or Ctrl+C) to stop it; close the other window
@@ -182,7 +182,7 @@ Other scripts:
 | `npm run encode-assets` | One-shot `scripts\encode-assets.bat` run — regenerate every `.b64` file once via `certutil`, no server, no watching |
 | `npm run dev:once` | The original behavior: `encode-assets` then `bonezegei src/http.bzg`, sequentially, no watcher |
 
-A successful start prints `Server running on http://localhost:3000/` in
+A successful start prints `Server running on http://localhost:5050/` in
 the terminal.
 
 ###### Developer's Note: When I was developing and implementing the 3D objects for Three.js to use, the program kept failing. At the time I was using pure BSL to load. The problem was BSL wouldn't load in my world because the file size was too large (~783 KB). So I used a separate server (first Python, then `npx serve`) to load the 3D assets instead.
@@ -194,13 +194,13 @@ With the server running, open a browser and try the following endpoints:
 
 | URL | What it does |
 |---|---|
-| `http://localhost:3000/` | Redirects (`302 Found`) to `/home` |
-| `http://localhost:3000/home` | Loads the Maze Ball game (`public/index.html`), which pulls `game.js`, its modules, and the 3D assets — all from this same server now |
-| `http://localhost:3000/about` | Loads the about page (`public/about.html`) |
-| `http://localhost:3000/style.css`, `/game.js` | Served directly from `public/` with the right `Content-Type` |
-| `http://localhost:3000/modules/*` | Any file under `public/modules/` (e.g. `/modules/sky.js`) |
-| `http://localhost:3000/assets/*` | Any file under `public/assets/` (models, audio, images, video) |
-| `http://localhost:3000/anything-else` | Any unrecognized path returns a `404 Not Found` with `public/404.html` |
+| `http://localhost:5050/` | Redirects (`302 Found`) to `/home` |
+| `http://localhost:5050/home` | Loads the Maze Ball game (`public/index.html`), which pulls `game.js`, its modules, and the 3D assets — all from this same server now |
+| `http://localhost:5050/about` | Loads the about page (`public/about.html`) |
+| `http://localhost:5050/style.css`, `/game.js` | Served directly from `public/` with the right `Content-Type` |
+| `http://localhost:Follow link (ctrl + click)/modules/*` | Any file under `public/modules/` (e.g. `/modules/sky.js`) |
+| `http://localhost:5050/assets/*` | Any file under `public/assets/` (models, audio, images, video) |
+| `http://localhost:Follow link (ctrl + click)/anything-else` | Any unrecognized path returns a `404 Not Found` with `public/404.html` |
 
 Once `/home` loads, use **WASD** or the **arrow keys** to roll the ball
 through the maze. The heads-up display in the top-left corner confirms the
