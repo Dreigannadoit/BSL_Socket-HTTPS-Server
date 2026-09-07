@@ -458,11 +458,93 @@ const HOTSPOT_CONTENT = {
         },
     },
     Hotspot_5: {
-        className: "hotspot-content-2",
-        render: () => `<div>Content 5</div>`,
+        className: "hotspot-content-5",
+        render: () => `
+    <div class="main_wrapper">
+        <h1>Outro.</h1>
+
+        <div class="slider_buttons">
+            <button class="mode_selector_button prev" type="button">
+                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                <span>Prev</span>
+            </button>
+            <button class="mode_selector_button next" type="button">
+                <span>Next</span>
+                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="slider_viewport">
+            <div class="slider">
+                <div class="slide_1 slide">
+                    <img data-b64-src="Hotspot_Head_5.png" data-b64-type="image/png" alt="">
+                </div>
+
+                <div class="slide_2 slide">
+                    <p>
+                        This project represents roughly one-quarter of the larger project I am currently developing, which utilizes similar mechanics and concepts. However, this version is, for the most part, a complete and functional build that demonstrates the core ideas and mechanics of the full project.
+                    </p>
+
+                    <br>
+
+                    <button class="Record_player" type="button">
+                        <svg width="34" height="34" fill="currentColor" viewBox="0 0 24 24">
+                            <path fill-rule="evenodd"
+                                d="M8.6 5.2A1 1 0 0 0 7 6v12a1 1 0 0 0 1.6.8l8-6a1 1 0 0 0 0-1.6l-8-6Z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <br>
+                    <br>
+
+                    <hr>
+                </div>
+            </div>
+        </div>
+    </div>
+    `,
+        // Same b64-resolution + slider pattern as Hotspot_1-4. Only
+        // slide_1's thumbnail needs resolving (Hotspot_Head_5.png).
+        init: (popupEl, context = {}) => {
+            popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
+                const file = el.getAttribute("data-b64-src");
+                const type = el.getAttribute("data-b64-type");
+                fetchAssetBlobURL(ASSET_BASE + file, type)
+                    .then((blobUrl) => {
+                        el.src = blobUrl;
+                        if (el.tagName === "VIDEO") el.load();
+                    })
+                    .catch((err) => console.error(`Failed to load ${file}:`, err));
+            });
+
+            const slider = popupEl.querySelector(".slider");
+            const slides = popupEl.querySelectorAll(".slide");
+            const prevBtn = popupEl.querySelector(".slider_buttons .prev");
+            const nextBtn = popupEl.querySelector(".slider_buttons .next");
+
+            let currentIndex = 0;
+            const goToSlide = (index) => {
+                currentIndex = (index + slides.length) % slides.length;
+                slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+            };
+
+            if (prevBtn) prevBtn.addEventListener("click", () => goToSlide(currentIndex - 1));
+            if (nextBtn) nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
+
+            goToSlide(0);
+        },
     },
 };
-
+w
 // Detects when the ball enters/exits a level-authored hotspot trigger and
 // owns the popup DOM element that displays each hotspot's content. Movement
 // itself isn't touched here — on entry it just calls the optional onEnter
