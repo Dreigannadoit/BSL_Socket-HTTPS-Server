@@ -1,0 +1,250 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+    <link rel="stylesheet" href="/style.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="test">
+
+        <div class="hotspot-content-3">
+
+            <div class="main_wrapper">
+
+                <h1>My Inspiration</h1>
+
+                <div class="slider_buttons">
+
+                    <button class="mode_selector_button prev" type="button">
+                        <svg width="100%" height="100%" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M15 18L9 12L15 6"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+
+                        <span>Prev</span>
+                    </button>
+
+                    <button class="mode_selector_button next" type="button">
+                        <span>Next</span>
+
+                        <svg width="100%" height="100%" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M9 18L15 12L9 6"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+
+                </div>
+
+                <br>
+
+                <div class="slider_viewport">
+
+                    <div class="slider">
+
+                        <div class="slide_1 slide">
+                            <img
+                                data-b64-src="assets/FreeRoam.png"
+                                data-b64-type="image/png"
+                                alt="">
+                        </div>
+
+                        <div class="slide_2 slide">
+
+                            <p>
+                                I was first inspired by the great award winning <a href="https://bruno-simon.com">Bruno Simon</a> for choosing to create a 3D Web based experience and <a href="https://5-million-devs.netlify.com/">Netlify’s 5M+ dev celebrations ball game</a> for the main movement and map layout. The game design was inspired by the generic Roblox Obby style of gameplay. With the Free Roam mode inspired by Portal (Valve).
+                            </p>
+
+                            <br>
+
+                            <button class="Record_player" type="button">
+                                <svg
+                                    width="34"
+                                    height="34"
+                                    fill="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M8.6 5.2A1 1 0 0 0 7 6v12a1 1 0 0 0 1.6.8l8-6a1 1 0 0 0 0-1.6l-8-6Z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <img
+            data-b64-src="assets/Hotspot_3.png"
+            data-b64-type="image/png"
+            alt="">
+
+    </div>
+
+
+    <script type="module">
+
+        import { fetchAssetBlobURL }
+            from "/modules/binaryAssetLoader.js";
+
+
+        // ============================================
+        // LOAD ASSETS
+        // ============================================
+
+        async function loadAssets() {
+
+            const elements =
+                document.querySelectorAll("[data-b64-src]");
+
+            for (const el of elements) {
+
+                const file =
+                    el.getAttribute("data-b64-src");
+
+                const type =
+                    el.getAttribute("data-b64-type");
+
+                try {
+
+                    const blobUrl =
+                        await fetchAssetBlobURL("/" + file, type);
+
+                    el.src = blobUrl;
+
+                    if (el.tagName === "VIDEO") {
+                        el.load();
+                    }
+
+                } catch (err) {
+
+                    console.error(
+                        `Failed to load ${file}:`,
+                        err
+                    );
+
+                }
+
+            }
+
+        }
+
+
+        // ============================================
+        // SLIDER
+        // ============================================
+
+        function initSlider() {
+
+            const slider =
+                document.querySelector(".slider");
+
+            const slides =
+                document.querySelectorAll(".slide");
+
+            const prevBtn =
+                document.querySelector(
+                    ".slider_buttons .prev"
+                );
+
+            const nextBtn =
+                document.querySelector(
+                    ".slider_buttons .next"
+                );
+
+
+            if (!slider || slides.length === 0) {
+                console.error("Slider elements not found.");
+                return;
+            }
+
+
+            let currentIndex = 0;
+
+
+            function goToSlide(index) {
+
+                currentIndex =
+                    (index + slides.length) % slides.length;
+
+                slider.style.transform =
+                    `translateX(-${currentIndex * 100}%)`;
+
+            }
+
+
+            // Previous slide
+            if (prevBtn) {
+
+                prevBtn.addEventListener("click", () => {
+
+                    goToSlide(currentIndex - 1);
+
+                });
+
+            }
+
+
+            // Next slide
+            if (nextBtn) {
+
+                nextBtn.addEventListener("click", () => {
+
+                    goToSlide(currentIndex + 1);
+
+                });
+
+            }
+
+
+            // Start at first slide
+            goToSlide(0);
+
+        }
+
+
+        // ============================================
+        // INITIALIZE
+        // ============================================
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            loadAssets();
+
+            initSlider();
+
+        });
+
+    </script>
+
+</body>
+
+</html>

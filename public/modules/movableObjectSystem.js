@@ -16,18 +16,25 @@ import {
     MOVABLE_BALL_RESTITUTION,
     MOVABLE_MAX_LINEAR_SPEED,
     MOVABLE_MAX_ANGULAR_SPEED,
+    MOVABLE_SLEEP_SPEED_LIMIT,
+    MOVABLE_SLEEP_TIME_LIMIT,
     MOVABLE_RADIUS_SHRINK,
     MOVABLE_MIN_RADIUS_FACTOR,
     MOVABLE_COLLISION_GROUP,
     MOVABLE_RESET_POPUP_HEIGHT,
     MOVABLE_RESET_GLOW_COLOR,
+    MOVABLE_GROUND_CHECK_TOLERANCE,
+    MOVABLE_GROUND_CHECK_MAX_RETRIES,
+    MOVABLE_GROUND_CHECK_NUDGE,
+    MOVABLE_WATCHDOG_CHECKS_PER_FRAME,
 } from "./config.js";
 
 // Owns every "MovableObjectSection" authored in the level GLB: a group of
 // gravity-affected, ball-pushable props (its "MovableObjects" children) plus
 // a sibling "MovableObjectResetTrigger" cylinder that, once rolled onto,
-// asks — via MovableObjectUI's world-anchored popup — whether to snap that
-// section's props back to their authored positions. Any number of sections
+// asks — via MovableObjectBillboard's world-anchored "Press Enter to Reset"
+// panel — whether to snap that section's props back to their authored
+// positions. Any number of sections
 // can be authored (currently two); each only ever resets its own objects,
 // same isolation GameModeManager's Start/EndTrigger pair doesn't need but
 // HotspotSystem's per-node registration already models well.
@@ -39,6 +46,12 @@ export class MovableObjectSystem {
 
         this.sections = []; // { objects: [{mesh,body,initialPosition,initialQuaternion}], trigger: {...}|null, inside }
         this.activeSection = null; // the one section currently showing its confirmation, or null
+
+        // Flat view across every section's objects, built once in setup()
+        // — used only by the round-robin watchdog sweep below, which
+        // doesn't care which section an object belongs to.
+        this.allObjects = [];
+        this._watchdogCursor = 0;
 
         // A dedicated physics material for every movable prop, tuned softer
         // (lower restitution, a bit more friction) than the world's default
@@ -145,6 +158,8 @@ export class MovableObjectSystem {
 
             this.sections.push(section);
         }
+
+        for (const section of this.sections) this.allObjects.push(...section.objects);
     }
 
     // Builds a dynamic physics body for one authored Cube/Sphere prop, and
@@ -201,6 +216,18 @@ export class MovableObjectSystem {
         // they slide rather than tumble/roll like a ball would.
         const isRoundProp = /sphere/i.test(mesh.name);
 
+        // The collision sphere is floored at BALL_RADIUS for pushability
+        // (see MOVABLE_MIN_RADIUS_FACTOR's comment in config.js), which for
+        // a short/thin prop can end up noticeably BIGGER than the mesh's
+        // real vertical half-extent. Since the mesh is driven straight off
+        // the sphere's center every frame, that mismatch reads as the prop
+        // permanently hovering above the real floor — physically correct
+        // (the sphere really is resting on the floor), but visually wrong.
+        // Compensating with a constant downward render offset — applied in
+        // update(), physics untouched — keeps the pushability radius intact
+        // while putting the visible mesh back flush with the true floor.
+        const visualDropOffset = Math.max(0, radius - halfExtents.y);
+
         const body = new CANNON.Body({
             mass: MOVABLE_MASS,
             shape: new CANNON.Sphere(radius),
@@ -208,6 +235,12 @@ export class MovableObjectSystem {
             linearDamping: MOVABLE_LINEAR_DAMPING,
             angularDamping: MOVABLE_ANGULAR_DAMPING,
             fixedRotation: !isRoundProp,
+            // See MOVABLE_SLEEP_SPEED_LIMIT's comment in config.js — this
+            // is the actual fix for the FPS drop when props start moving:
+            // getting them back to sleep quickly once they stop matters far
+            // more than anything about how the physics itself is tuned.
+            sleepSpeedLimit: MOVABLE_SLEEP_SPEED_LIMIT,
+            sleepTimeLimit: MOVABLE_SLEEP_TIME_LIMIT,
             // Left at its default (true) rather than forced false — see
             // physicsWorld.js's world.allowSleep comment for why letting
             // props sleep once they settle matters a lot for performance.
@@ -242,12 +275,87 @@ export class MovableObjectSystem {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
 
-        return {
+        const obj = {
             mesh,
             body,
+            radius,
+            visualDropOffset,
             initialPosition: worldPos.clone(),
             initialQuaternion: worldQuat.clone(),
+            groundCheckRetries: 0,
         };
+
+        // The actual fix for props freezing mid-air: cannon-es puts a body
+        // to sleep purely from ITS OWN speed dropping below
+        // MOVABLE_SLEEP_SPEED_LIMIT for MOVABLE_SLEEP_TIME_LIMIT seconds —
+        // it never checks whether anything is actually underneath it. A
+        // tightly packed group of props (this level's stacks/rows) is
+        // exactly the case where that assumption breaks: a prop can end up
+        // momentarily "wedged" — held nearly still by friction against its
+        // neighbors, sometimes just from a slightly-under-converged solver
+        // step (30 iterations isn't infinite) — for long enough to cross
+        // that speed/time threshold before it has actually reached the
+        // floor. cannon-es then stops integrating it entirely, so gravity
+        // never gets another chance to finish the job: a visibly floating
+        // prop, frozen forever. Every time a prop crosses into SLEEPING we
+        // fire one cheap downward raycast to check that's actually true —
+        // see _checkGrounded. That catches it going to sleep unsupported,
+        // but not a prop whose support gets pulled out from under it
+        // AFTER it's already asleep (e.g. a stacked prop resting on top of
+        // a DIFFERENT section's prop, which then teleports back to its
+        // authored position when that other section is reset — a teleport
+        // doesn't collide with anything, so nothing ever wakes the prop
+        // sitting on it). update()'s round-robin sweep covers that case by
+        // periodically re-checking sleeping props even with no event to
+        // trigger it.
+        body.addEventListener("sleep", () => this._checkGrounded(obj));
+
+        return obj;
+    }
+
+    // Shared by the "sleep" event listener above (immediate, catches a
+    // prop settling somewhere it shouldn't) and update()'s round-robin
+    // sweep (periodic, catches a prop whose support disappeared after it
+    // was already asleep). Casts one short ray straight down from just
+    // above the prop to well below the floor; a genuinely-resting prop
+    // hits something (the real floor/wall, or another prop it's stacked
+    // on) within `radius + tolerance` of itself. If it doesn't — nothing
+    // there at all, or the nearest thing is farther below than its own
+    // radius plus a small allowance — wake it back up and give it a small
+    // extra downward shove so it actually separates from whatever was
+    // falsely holding it (or simply falls now that its support is gone)
+    // and gets a clean chance to fall and resettle. `collisionResponse` is
+    // flipped off for the instant of the cast (the same trick cannon-es's
+    // own RaycastVehicle uses to keep a body's ray from hitting itself)
+    // since the ray starts inside the prop's own sphere.
+    _checkGrounded(obj) {
+        const body = obj.body;
+        const from = new CANNON.Vec3(body.position.x, body.position.y, body.position.z);
+        const to = new CANNON.Vec3(body.position.x, body.position.y - 50, body.position.z);
+        const result = new CANNON.RaycastResult();
+
+        const prevResponse = body.collisionResponse;
+        body.collisionResponse = false;
+        this.world.raycastClosest(from, to, {}, result);
+        body.collisionResponse = prevResponse;
+
+        if (result.hasHit) {
+            const clearance = body.position.y - result.hitPointWorld.y - obj.radius;
+            if (clearance <= MOVABLE_GROUND_CHECK_TOLERANCE) {
+                obj.groundCheckRetries = 0;
+                return;
+            }
+        }
+
+        // Cap the retries so a genuinely pathological case (e.g. a prop
+        // wedged somewhere a straight-down ray can never resolve) can't
+        // turn into an infinite wake/sleep loop burning CPU every cycle —
+        // in practice a real false-sleep resolves on the very first retry.
+        obj.groundCheckRetries++;
+        if (obj.groundCheckRetries > MOVABLE_GROUND_CHECK_MAX_RETRIES) return;
+
+        body.wakeUp();
+        body.velocity.y -= MOVABLE_GROUND_CHECK_NUDGE;
     }
 
     // Builds the trigger's world-space bounds (same Box3-from-geometry +
@@ -300,6 +408,8 @@ export class MovableObjectSystem {
     // HotspotSystem), and checks — per section — whether the ball has just
     // rolled onto its trigger.
     update(ballPosition, elapsed) {
+        this._sweepGroundWatchdog();
+
         const pulse = 0.5 + Math.sin(elapsed * 2.2) * 0.5; // 0 -> 1
         const intensity = 2.2 + pulse * 1.2;
 
@@ -316,7 +426,7 @@ export class MovableObjectSystem {
                 const angSpeed = w.length();
                 if (angSpeed > MOVABLE_MAX_ANGULAR_SPEED) w.scale(MOVABLE_MAX_ANGULAR_SPEED / angSpeed, w);
 
-                obj.mesh.position.copy(obj.body.position);
+                obj.mesh.position.set(obj.body.position.x, obj.body.position.y - obj.visualDropOffset, obj.body.position.z);
                 obj.mesh.quaternion.copy(obj.body.quaternion);
             }
 
@@ -342,6 +452,26 @@ export class MovableObjectSystem {
                 this._resolve(section, false);
             }
             section.inside = inside;
+        }
+    }
+
+    // A fixed, tiny amount of watchdog work every frame (a handful of
+    // raycasts, only against props already asleep) rather than rechecking
+    // every sleeping prop every frame — cost stays flat no matter how many
+    // props the level has. Cycles through `allObjects` round-robin so
+    // every sleeping prop still gets re-verified periodically, catching a
+    // prop whose support was pulled out from under it after it fell asleep
+    // (see _checkGrounded's comment for the concrete scenario: a different
+    // section resetting/teleporting the prop it was resting on).
+    _sweepGroundWatchdog() {
+        const total = this.allObjects.length;
+        if (total === 0) return;
+
+        const checks = Math.min(MOVABLE_WATCHDOG_CHECKS_PER_FRAME, total);
+        for (let i = 0; i < checks; i++) {
+            const obj = this.allObjects[this._watchdogCursor];
+            this._watchdogCursor = (this._watchdogCursor + 1) % total;
+            if (obj.body.sleepState === CANNON.Body.SLEEPING) this._checkGrounded(obj);
         }
     }
 
@@ -380,6 +510,7 @@ export class MovableObjectSystem {
             obj.body.quaternion.copy(obj.initialQuaternion);
             obj.body.velocity.set(0, 0, 0);
             obj.body.angularVelocity.set(0, 0, 0);
+            obj.groundCheckRetries = 0;
         }
     }
 }

@@ -131,6 +131,9 @@ while (1) {
             else if (path == "/about") {
                 filePath = "public/about.html";
             }
+            else if (path == "/test") {
+                filePath = "public/test.html";
+            }
             else if (isStaticAsset(path)) {
                 // e.g. "/modules/sky.js" -> "public/modules/sky.js"
                 filePath = "public" + path;

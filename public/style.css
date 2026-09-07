@@ -15,6 +15,21 @@ body {
     font-optical-sizing: auto;
 }
 
+.test{
+    position: relative;
+    height: 100%;
+    width: 100%;
+}
+
+.test img{
+    position: fixed;
+    top: 0;
+    left: 0;
+    object-fit: cover;
+    height: 100%;
+    width: 100%;
+}
+
 canvas {
     display: block;
     z-index: 1;
@@ -61,6 +76,7 @@ canvas {
 
 #hotspot-popup.visible {
     opacity: 1;
+    pointer-events: auto;
     transition: opacity 800ms 500ms ease , transform 800ms 500ms ease ;
 }
 
@@ -421,17 +437,7 @@ button.mode_selector_button:hover {
     font-size: 28px;
 }
 
-
-.about, .about>img{
-    height: 100vh;
-    width: 100vw;
-}
-.about>img{
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 1;
-}
+/* Hotspot 2 */
 
 .hotspot-content-2{
     position: fixed;
@@ -514,7 +520,8 @@ button.mode_selector_button:hover {
     height: 210px;
     width: 150px;
     
-    transform:rotateX(-11deg) rotateY(-60deg) translate3d(1170px, 185px, -103px) translate(-50%, -50%) ;
+    transform:rotateX(-11deg) rotateY(-60deg) translate3d(1410px, 185px, -103px) translate(-50%, -50%) scale(0.7);
+
 
 }
 
@@ -543,4 +550,96 @@ button.mode_selector_button:hover {
 .hotspot-content-2 .side h1{
     font-size: 82px;
     line-height: 60px;
+}
+
+
+/* Hotspot 3 */
+
+.hotspot-content-3{
+    position: fixed;
+    height: 100vh;
+    width: 100%;
+    z-index: 9999;
+    perspective: 6500px;
+    transform-style: preserve-3d;
+}
+
+.hotspot-content-3#hotspot-popup{
+    transform: translate(50%, 50%) scale(2.5);
+}
+
+.hotspot-content-3#hotspot-popup.visible{
+    transform: translate(0%, 0) scale(1);
+    left: 0;
+    bottom: 0;
+    pointer-events: auto;
+}
+.hotspot-content-3 .main_wrapper{
+    position: fixed;
+    top: 35%;
+    left: 50%;
+    height: 360px;
+    width: 500px;
+    transform: rotateX(6deg) rotateY(-39deg) rotateZ(4deg) translate3d(600px, 50px, 800px) translate(-50%, -50%) ;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0 20px;
+}
+
+.hotspot-content-3 .main_wrapper h1{
+    color: #fff; 
+}
+
+.hotspot-content-3 .slider_viewport{
+    width: 100%;
+    overflow: hidden;
+    color: #fff; 
+}
+
+.hotspot-content-3 .slider_viewport a{
+    color: #fff; 
+
+}
+
+.hotspot-content-3 .slider{
+    display: flex;
+    width: 100%;
+    transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+    will-change: transform;
+    
+}
+
+.hotspot-content-3 .slider .slide{
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+}
+
+.hotspot-content-3 .slider img{
+    width: 100%;
+    border-radius: 15px;
+}
+
+.hotspot-content-3 .slider .slide button{
+    border-radius: 100%;
+    border: none;
+    background-color: #fff;
+    padding: 11px 10px 10px 11px;
+    cursor: pointer;
+}
+
+.hotspot-content-3 .slider p{
+    font-size: 18px;
+}
+
+.hotspot-content-3 .side_wrapper{
+    position: relative;
+    height: 210px;
+    width: 150px;
+    
+    transform: rotateX(6deg) rotateY(53deg) rotateZ(-6deg) translate3d(170px, 185px, -103px) translate(-50%, -50%) ;
+
 }

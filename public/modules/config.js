@@ -33,6 +33,18 @@ export const DECEL_RATE = 1.5;
 // Lower = smoother/slower direction changes while moving. Decoupled from
 // ACCEL so turning feels gradual independent of the speed ramp-up curve.
 export const TURN_SMOOTHING = 4.5;
+// How quickly held input can redirect the ball's horizontal velocity while
+// airborne (a full snap-to-target every frame, same as grounded movement,
+// is what let pushing a movable prop turn one small unwanted liftoff into
+// "flying off" — see playerController.js's _applyInput). Deliberately much
+// lower than TURN_SMOOTHING/ACCEL so it reads as "a little air control",
+// not full mid-air steering.
+export const AIR_CONTROL_RATE = 2.5;
+// How far the ball is allowed to drift above the true floor height while
+// touching a movable prop before playerController snaps it back down (see
+// its update()) — small enough to catch a real climb early, loose enough
+// not to fight ordinary resting contact jitter.
+export const MOVABLE_PROP_CLIMB_TOLERANCE = 0.03;
 
 // Piecewise speed-fraction curve driven by how long input has been held,
 // not by a generic ease. Reaches 100% of MAX_SPEED at exactly 900ms.
@@ -389,13 +401,13 @@ export const MOVABLE_COLLISION_GROUP = 2;
 // ball's mass at all. Verified with a direct push-distance test: this
 // tuning moves a prop ~2.6x farther in the same push time than an earlier,
 // heavier-feeling pass.
-export const MOVABLE_MASS = 0.15;
-export const MOVABLE_LINEAR_DAMPING = 0.05;
+export const MOVABLE_MASS = 0.1;              // lighter — was 0.15, easier for a push to get moving
+export const MOVABLE_LINEAR_DAMPING = 0.08;   // slightly higher than before so the extra restitution below settles into a bouncy wobble instead of sliding on
 export const MOVABLE_ANGULAR_DAMPING = 0.3;
 export const MOVABLE_FRICTION = 0.15;         // vs. floor/wall/each other
-export const MOVABLE_BALL_FRICTION = 0.35;    // vs. the ball specifically — a bit more grip so a push "bites" instead of the ball just slipping past
-export const MOVABLE_RESTITUTION = 0.1;      // vs. floor/wall/each other — barely bouncy, so props settle
-export const MOVABLE_BALL_RESTITUTION = 0.2; // vs. the ball specifically — a touch livelier on contact
+export const MOVABLE_BALL_FRICTION = 0.25;    // vs. the ball specifically — was 0.35; lowered so a push doesn't feel "sticky" on a light object
+export const MOVABLE_RESTITUTION = 0.15;      // vs. floor/wall/each other — a touch more than before, still settles
+export const MOVABLE_BALL_RESTITUTION = 0.35; // vs. the ball specifically — was 0.2; noticeably livelier "light and bouncy" pop on contact
 
 // Safety clamp applied after every physics step: a tightly packed stack of
 // many touching props (e.g. a block tower) is a worst case for an
@@ -406,6 +418,48 @@ export const MOVABLE_BALL_RESTITUTION = 0.2; // vs. the ball specifically — a 
 // materials are.
 export const MOVABLE_MAX_LINEAR_SPEED = 12;
 export const MOVABLE_MAX_ANGULAR_SPEED = 20;
+
+// How quickly a prop is allowed to fall back asleep once it's basically
+// stopped. This matters a lot more than it sounds like it should: a
+// disturbed prop isn't expensive because of the solver — profiling showed
+// the solver costs under 1ms even with dozens of props awake. The real
+// cost is narrowphase: every AWAKE prop repeatedly tests against every
+// nearby piece of the level's real Floor/Walls (many small Trimesh pieces —
+// see physicsWorld.js's addTrimeshCollider), and cannon-es's sphere-vs-
+// trimesh check is a brute-force per-triangle scan with no internal spatial
+// acceleration (confirmed directly: merging those pieces into fewer, larger
+// meshes made this WORSE, not better, since each test then had to scan even
+// more triangles). So the real lever is keeping as few props awake, for as
+// short a time, as possible — not making each awake step cheaper. Cannon-es
+// defaults (sleepSpeedLimit 0.1, sleepTimeLimit 1s) let a settling prop
+// jitter around "awake" for a full second after a push. Measured directly
+// against this level: default settings held a disturbed 64-cube stack in
+// the expensive state for ~2s with a 28ms peak frame; these tighter values
+// cut the peak to ~14ms and the sustained cost by roughly 70%, with no
+// measurable effect on how far a prop travels under an active push (it only
+// changes how fast it re-sleeps once nothing is pushing it anymore).
+export const MOVABLE_SLEEP_SPEED_LIMIT = 0.3;
+export const MOVABLE_SLEEP_TIME_LIMIT = 0.1;
+
+// The "did this prop actually land, or did it just go to sleep mid-air"
+// watchdog (see MovableObjectSystem._verifyGroundedOnSleep). Tolerance is
+// deliberately generous — bigger than the small intentional hover already
+// described above for undersized props (MOVABLE_MIN_RADIUS_FACTOR) — so
+// normal, correctly-resting props are never falsely flagged and re-woken;
+// it only catches props sleeping well above anything that could plausibly
+// be holding them up. Nudge is a one-time extra downward velocity (on top
+// of whatever gravity already gave it) so a re-woken prop visibly starts
+// falling again immediately rather than just barely creeping.
+export const MOVABLE_GROUND_CHECK_TOLERANCE = 0.15; // meters
+export const MOVABLE_GROUND_CHECK_MAX_RETRIES = 6; // per prop, before giving up rather than risk an infinite wake loop
+export const MOVABLE_GROUND_CHECK_NUDGE = 0.5; // m/s
+
+// How many sleeping props the round-robin watchdog sweep re-verifies per
+// frame (see MovableObjectSystem._sweepGroundWatchdog). Deliberately a
+// small flat number rather than "all of them" — cost per frame stays
+// constant no matter how many props the level has, and even a large prop
+// count only takes a few seconds to cycle through entirely at 60+fps.
+export const MOVABLE_WATCHDOG_CHECKS_PER_FRAME = 3;
 
 // Every prop — including the "Cube" ones — gets a CANNON.Sphere collider,
 // not a Box. This isn't a style choice: I verified it directly (drop a Box

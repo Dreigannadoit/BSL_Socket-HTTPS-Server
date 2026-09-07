@@ -4,6 +4,9 @@ import {
     MAX_SPEED,
     DECEL_RATE,
     TURN_SMOOTHING,
+    AIR_CONTROL_RATE,
+    BALL_RADIUS,
+    MOVABLE_PROP_CLIMB_TOLERANCE,
     SLIDE_MIN_SLOPE,
     REVERSAL_SKID_DURATION,
     REVERSAL_DOT_THRESHOLD,
@@ -47,6 +50,11 @@ export class PlayerController {
         // Ground detection state
         this.groundNormal = new CANNON.Vec3(0, 1, 0);
         this.isGrounded = false;
+        this.groundHitY = null;
+        // See update()'s comment — true whenever isGrounded is true OR the
+        // ball is touching a movable prop; drives _applyInput's movement
+        // branch so pushing stays fully responsive.
+        this.effectiveGrounded = false;
         // Seconds since the ball was last confirmed grounded — a real fall
         // accumulates real time here; a seam/ramp raycast flicker lasts at
         // most one frame's dt.
@@ -65,6 +73,12 @@ export class PlayerController {
         this.wallHitPending = false; // set on collision, processed next frame
         this.bounceVelocity = new CANNON.Vec3();
         this.bounceTimer = 0;
+
+        // Set by _onCollide whenever the ball contacts a movable prop this
+        // physics step, consumed (and cleared) at the top of the NEXT
+        // update() — see its use in update() for why this stops the ball
+        // from being launched up and over a prop it's pushing.
+        this.touchingMovableProp = false;
 
         // Reversal skid state
         this.reversalTimer = 0;
@@ -134,7 +148,23 @@ export class PlayerController {
         // real physics contact (and the resulting push) still happens
         // regardless — this only skips the extra game-feel layer on top,
         // which was never meant for anything but real level geometry.
-        if (event.body.isMovableProp) return;
+        if (event.body.isMovableProp) {
+            // A movable prop's collision sphere is only ever floored at
+            // BALL_RADIUS, not fixed to it — packed-together props get
+            // theirs shrunk smaller so they don't overlap their neighbors
+            // (see MOVABLE_MIN_RADIUS_FACTOR/neighborSafeRadius in
+            // movableObjectSystem.js). A shrunk prop then rests with its
+            // sphere CENTER lower than the ball's (which always sits at
+            // exactly BALL_RADIUS above the floor), so the sphere-vs-sphere
+            // contact normal points up-and-out instead of level — pushing
+            // the ball up onto the prop instead of just shoving it
+            // sideways. Flagging the contact here and clamping the
+            // resulting vertical velocity next frame (see update()) stops
+            // that climb before it starts, without having to touch the
+            // collider geometry itself.
+            this.touchingMovableProp = true;
+            return;
+        }
 
         const normal = event.contact.ni;
         if (Math.abs(normal.y) < 0.7) {
@@ -276,9 +306,18 @@ export class PlayerController {
         if (result.hasHit) {
             this.isGrounded = true;
             this.groundNormal.copy(result.hitNormalWorld);
+            // The TRUE floor height directly below the ball, ignoring
+            // movable props (GROUND_RAY_MASK excludes them) — used by
+            // update() to pin the ball's height while it's touching a prop.
+            // Real floor/wall geometry only, so it's exactly the height the
+            // ball should be resting at regardless of what a prop's own
+            // (possibly shrunk, see movableObjectSystem.js) collision
+            // sphere is trying to do to it.
+            this.groundHitY = result.hitPointWorld.y;
         } else {
             this.isGrounded = false;
             this.groundNormal.set(0, 1, 0);
+            this.groundHitY = null;
         }
 
         // Landing detection lives here, not in the physics "collide" event.
@@ -334,6 +373,47 @@ export class PlayerController {
 
         const ballBody = this.ballBody;
         const keys = this.keys;
+
+        // Consume last step's movable-prop contact flag (see _onCollide).
+        // Two corrections, both needed:
+        //  1. Kill any upward velocity picked up from the contact.
+        //  2. Pin the ball's height back down to the TRUE floor (from this
+        //     frame's checkGround raycast, which ignores props) if it's
+        //     drifted above it. #1 alone isn't enough — cannon-es resolves
+        //     interpenetration by nudging POSITION directly as well as
+        //     velocity, so zeroing velocity.y after the fact doesn't undo a
+        //     position nudge that already happened; left alone, a few
+        //     millimeters of drift per contacting frame compounds into a
+        //     slow climb up the prop instead of a launch off it — and once
+        //     the ball's sitting on top, the contact normal is nearly
+        //     vertical, so there's nothing left to actually push the prop
+        //     sideways with. Pinning to the real floor height every frame
+        //     the ball is in contact stops the drift before it can compound.
+        const touchingProp = this.touchingMovableProp;
+        this.touchingMovableProp = false;
+        if (touchingProp) {
+            if (ballBody.velocity.y > 0) ballBody.velocity.y = 0;
+            if (this.groundHitY !== null) {
+                const restHeight = this.groundHitY + BALL_RADIUS;
+                if (ballBody.position.y > restHeight + MOVABLE_PROP_CLIMB_TOLERANCE) {
+                    ballBody.position.y = restHeight;
+                }
+            }
+        }
+        // Movement control (see _applyInput) treats contact with a prop as
+        // equivalent to being grounded. Without this, isGrounded's own
+        // raycast flickers false on ordinary contact with a prop (not just
+        // while climbing), which would otherwise fall through to
+        // _applyInput's airborne-easing branch — that easing lets the
+        // prop's physical push-back resistance bleed into the BALL's own
+        // speed, which fights this game's actual design (see
+        // MOVABLE_MASS's comment in config.js): the ball is meant to always
+        // move at full commanded speed regardless of what it's pushing —
+        // only the PROP is supposed to feel heavy/light, never the ball.
+        // The clamp/reposition above already rules out an actual climb or
+        // launch, so there's no downside to keeping push response at full
+        // strength here.
+        this.effectiveGrounded = this.isGrounded || touchingProp;
 
         if (this.frozen) {
             ballBody.velocity.x = 0;
@@ -545,10 +625,25 @@ export class PlayerController {
             targetVelZ = this.reversalVelocity.z * (1 - rBlend) + targetVelZ * rBlend;
         }
 
-        ballBody.velocity.x = targetVelX;
-        ballBody.velocity.z = targetVelZ;
+        if (this.effectiveGrounded) {
+            ballBody.velocity.x = targetVelX;
+            ballBody.velocity.z = targetVelZ;
+        } else {
+            // While genuinely airborne (not just touching a movable prop —
+            // see effectiveGrounded in update()), EASE toward the target
+            // instead of snapping to it outright. Grounded movement can
+            // hard-set velocity every frame because checkGround() catches
+            // it again next frame either way — but if the ball is ever
+            // truly lifted off everything (a real fall/launch), hard-
+            // setting full speed here every frame would let held input
+            // rocket it in that direction with nothing to check it. Easing
+            // instead gives a little air control without that runaway.
+            const airEase = 1 - Math.exp(-AIR_CONTROL_RATE * dt);
+            ballBody.velocity.x += (targetVelX - ballBody.velocity.x) * airEase;
+            ballBody.velocity.z += (targetVelZ - ballBody.velocity.z) * airEase;
+        }
 
-        if (this.isGrounded && this.bounceTimer <= 0 && !this.landingBounceActive) {
+        if (this.effectiveGrounded && this.bounceTimer <= 0 && !this.landingBounceActive) {
             ballBody.velocity.y = targetVelY;
         }
 

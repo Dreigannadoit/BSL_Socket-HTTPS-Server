@@ -18,6 +18,7 @@ import { GameModeManager } from "./gameModeManager.js";
 import { GameModeUI } from "./gameModeUI.js";
 import { MovableObjectSystem } from "./movableObjectSystem.js";
 import { MovableObjectBillboard } from "./movableObjectBillboard.js";
+import { FpsCounter } from "./fpsCounter.js";
 import { loadLevel } from "./levelLoader.js";
 import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL } from "./config.js";
 
@@ -133,6 +134,9 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     // explicitly toggled or pressed — never on by default.
     const devTools = new DevTools({ ballBody, hotspotSystem, respawnSystem, player, gameModeManager, camera });
 
+    // ── FPS readout (top-right) ──
+    const fpsCounter = new FpsCounter();
+
     // ── Level ──
     loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl });
 
@@ -150,7 +154,11 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
 
     function animate() {
         requestAnimationFrame(animate);
-        const dt = Math.min(clock.getDelta(), 0.05);
+        const rawDt = clock.getDelta();
+        const dt = Math.min(rawDt, 0.05);
+        // Fed the RAW delta, not the clamped one above — see fpsCounter.js's
+        // comment on why a real hitch shouldn't be hidden behind that cap.
+        fpsCounter.update(rawDt);
 
         player.update(dt);
         world.step(1 / 60, dt, 10);

@@ -224,7 +224,7 @@ const HOTSPOT_CONTENT = {
                 <div class="slide_2 slide">
                     <p>This project was created to test out BSL capabilities by creating a lightweight custom HTTP server written from scratch in the Bonezegei Scripting Language (BSL). </p>
                     <br>
-                    <button class="Record_player">
+                    <button class="Record_player" id="intro_audio">
                         <svg class="w-10 h-10 text-gray-800 dark:text-white" aria-hidden="true"
                             xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="currentColor"
                             viewBox="0 0 24 24">
@@ -286,8 +286,89 @@ const HOTSPOT_CONTENT = {
         },
     },
     Hotspot_3: {
-        className: "hotspot-content-2",
-        render: () => `<div>Content 3</div>`,
+        className: "hotspot-content-3",
+        render: () => `
+    <div class="main_wrapper">
+        <h1>My Inspiration</h1>
+
+        <div class="slider_buttons">
+            <button class="mode_selector_button prev" type="button">
+                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                <span>Prev</span>
+            </button>
+            <button class="mode_selector_button next" type="button">
+                <span>Next</span>
+                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+        </div>
+
+        <br>
+
+        <div class="slider_viewport">
+            <div class="slider">
+                <div class="slide_1 slide">
+                    <img data-b64-src="Hotspot_Head_3.png" data-b64-type="image/png" alt="">
+                </div>
+
+                <div class="slide_2 slide">
+                    <p>
+                        I was first inspired by the great award winning <a href="https://bruno-simon.com" target="_blank" rel="noopener noreferrer">Bruno Simon</a> for choosing to create a 3D Web based experience and <a href="https://5-million-devs.netlify.com/" target="_blank" rel="noopener noreferrer">Netlify's 5M+ dev celebrations ball game</a> for the main movement and map layout. The game design was inspired by the generic Roblox Obby style of gameplay. With the Free Roam mode inspired by Portal (Valve).
+                    </p>
+
+                    <br>
+
+                    <button class="Record_player" type="button" id="inspo_audio"">
+                        <svg width="34" height="34" fill="currentColor" viewBox="0 0 24 24">
+                            <path fill-rule="evenodd"
+                                d="M8.6 5.2A1 1 0 0 0 7 6v12a1 1 0 0 0 1.6.8l8-6a1 1 0 0 0 0-1.6l-8-6Z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `,
+        // Same b64-resolution + slider pattern as Hotspot_1/Hotspot_2. Only
+        // one image needs resolving here (FreeRoam.png); the "Record_player"
+        // button doesn't play anything yet in this popup so it's left as a
+        // static hook for now, same as the source test page.
+        init: (popupEl, context = {}) => {
+            popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
+                const file = el.getAttribute("data-b64-src");
+                const type = el.getAttribute("data-b64-type");
+                fetchAssetBlobURL(ASSET_BASE + file, type)
+                    .then((blobUrl) => {
+                        el.src = blobUrl;
+                        if (el.tagName === "VIDEO") el.load();
+                    })
+                    .catch((err) => console.error(`Failed to load ${file}:`, err));
+            });
+
+            const slider = popupEl.querySelector(".slider");
+            const slides = popupEl.querySelectorAll(".slide");
+            const prevBtn = popupEl.querySelector(".slider_buttons .prev");
+            const nextBtn = popupEl.querySelector(".slider_buttons .next");
+
+            let currentIndex = 0;
+            const goToSlide = (index) => {
+                currentIndex = (index + slides.length) % slides.length;
+                slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+            };
+
+            if (prevBtn) prevBtn.addEventListener("click", () => goToSlide(currentIndex - 1));
+            if (nextBtn) nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
+
+            goToSlide(0);
+        },
     },
     Hotspot_4: {
         className: "hotspot-content-2",
