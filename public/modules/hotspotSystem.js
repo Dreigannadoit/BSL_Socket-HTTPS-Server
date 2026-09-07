@@ -371,8 +371,91 @@ const HOTSPOT_CONTENT = {
         },
     },
     Hotspot_4: {
-        className: "hotspot-content-2",
-        render: () => `<div>Content 4</div>`,
+        className: "hotspot-content-4",
+        render: () => `
+    <div class="main_wrapper">
+        <h1>&lt; Dev Note /&gt;</h1>
+
+        <div class="slider_buttons">
+            <button class="mode_selector_button prev" type="button">
+                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                <span>Prev</span>
+            </button>
+            <button class="mode_selector_button next" type="button">
+                <span>Next</span>
+                <svg width="100%" height="100%" viewBox="0 24 24" fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+        </div>
+
+        <br>
+
+        <div class="slider_viewport">
+            <div class="slider">
+                <div class="slide_1 slide">
+                    <img data-b64-src="Hotspot_Head_4.jpg" data-b64-type="image/png" alt="">
+                </div>
+
+                <div class="slide_2 slide">
+                    <p>
+                        The Development process for the project took a total of 9 hours spread over a week of development. While the game was built on standard JavaScript, the BSL being used on the backend had to manually pick out the file name from the raw text of each browser request, since it doesn't have a built-in tool that understands web requests for you.
+                    </p>
+
+                    <br>
+
+                    <button class="Record_player" type="button" id="devNotes_audio">
+                        <svg width="34" height="34" fill="currentColor" viewBox="0 0 24 24">
+                            <path fill-rule="evenodd"
+                                d="M8.6 5.2A1 1 0 0 0 7 6v12a1 1 0 0 0 1.6.8l8-6a1 1 0 0 0 0-1.6l-8-6Z"
+                                clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `,
+        // Same b64-resolution + slider pattern as Hotspot_1/2/3. Only the
+        // slide_1 thumbnail needs resolving (Hotspot_Head_4.jpg). Note the
+        // source .jpg file is passed with data-b64-type="image/png" in the
+        // original markup — kept as-is here, but worth checking whether
+        // that's intentional (e.g. server stores everything as PNG-encoded
+        // regardless of file extension) or a mismatch to fix at the source.
+        init: (popupEl, context = {}) => {
+            popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
+                const file = el.getAttribute("data-b64-src");
+                const type = el.getAttribute("data-b64-type");
+                fetchAssetBlobURL(ASSET_BASE + file, type)
+                    .then((blobUrl) => {
+                        el.src = blobUrl;
+                        if (el.tagName === "VIDEO") el.load();
+                    })
+                    .catch((err) => console.error(`Failed to load ${file}:`, err));
+            });
+
+            const slider = popupEl.querySelector(".slider");
+            const slides = popupEl.querySelectorAll(".slide");
+            const prevBtn = popupEl.querySelector(".slider_buttons .prev");
+            const nextBtn = popupEl.querySelector(".slider_buttons .next");
+
+            let currentIndex = 0;
+            const goToSlide = (index) => {
+                currentIndex = (index + slides.length) % slides.length;
+                slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+            };
+
+            if (prevBtn) prevBtn.addEventListener("click", () => goToSlide(currentIndex - 1));
+            if (nextBtn) nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
+
+            goToSlide(0);
+        },
     },
     Hotspot_5: {
         className: "hotspot-content-2",
