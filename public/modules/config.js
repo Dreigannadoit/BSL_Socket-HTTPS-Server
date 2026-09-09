@@ -248,6 +248,25 @@ export const GLOW_COLOR = 0x33ccff;
 export const GLOW_COLOR_ALERT = 0xff2a3d;
 export const BLOOM_LAYER = 1;
 
+// ── Player entrance (spawn beam) ──
+// Plays once per page load, right after the level + ball have both
+// finished loading (see LoadingScreen/PlayerEntrance in main.js): a
+// cylindrical beam of light drops onto the spawn point, the player pops in
+// at its base, then the beam retracts and disappears. The ball is hidden
+// and the player frozen (see PlayerController.setFrozen) for the entire
+// sequence so nothing is visible/movable before it fires.
+export const ENTRANCE_BEAM_RADIUS = 1;   // meters
+export const ENTRANCE_BEAM_HEIGHT = 30;  // meters
+export const ENTRANCE_BEAM_COLOR = 0xaeefff;
+// Durations sum to ~1.25s of beam motion; the hold in the middle is what
+// the player actually spawns during — see PlayerEntrance._onBeamReachedFloor.
+export const ENTRANCE_DESCEND_DURATION = 0.4;  // beam grows down to the floor
+export const ENTRANCE_HOLD_DURATION = 0.45;    // full beam, player visible
+export const ENTRANCE_RETRACT_DURATION = 0.4;  // beam shrinks back up and vanishes
+// Ground flash ring, triggered the instant the beam touches down.
+export const ENTRANCE_RING_DURATION = 0.5;
+export const ENTRANCE_RING_MAX_SCALE = 2.6;
+
 // ── Hotspot environment grayscale ──
 // Camera layer flagged onto every ball mesh (main model + fallback sphere).
 // BloomRenderer renders a mask pass using only this layer so it knows which

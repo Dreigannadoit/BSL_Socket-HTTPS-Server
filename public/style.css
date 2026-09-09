@@ -70,6 +70,7 @@ canvas {
      down. pointer-events stays off since hotspots are exited by driving
      away, not by clicking anything. */
 #hotspot-popup {
+    z-index: 20;
     opacity: 0;
     transition: opacity 500ms 0ms ease , transform 500ms 0ms ease ;
 }

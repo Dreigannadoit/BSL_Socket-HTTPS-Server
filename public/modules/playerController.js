@@ -341,12 +341,20 @@ export class PlayerController {
                 } else if (this.ungroundedTime >= MIN_AIRBORNE_TIME && !this.landingBounceActive) {
                     this.landingBounceActive = true;
                     this.bouncesRemaining = MAX_LANDING_BOUNCES;
-                    this.audioManager.playBounceSound(0.8);
+                    // Skip the sound while frozen — this is the same path
+                    // that fires for the brief initial drop onto the floor
+                    // right after level load (ball spawns slightly above
+                    // the ground), which happens while the ball is still
+                    // hidden/frozen for the entrance animation (see
+                    // PlayerEntrance in main.js). A "thud" before the
+                    // player has visually appeared would be a stray sound
+                    // effect with nothing on screen to attribute it to.
+                    if (!this.frozen) this.audioManager.playBounceSound(0.8);
                 } else if (this.landingBounceActive) {
                     if (this.bouncesRemaining > 0) {
                         // Every bounce in the sequence gets its own sound,
                         // not just the first impact.
-                        this.audioManager.playBounceSound(0.8);
+                        if (!this.frozen) this.audioManager.playBounceSound(0.8);
                     } else {
                         // Used up every allotted bounce — end the sequence
                         // so the vertical-velocity lock can resume and the

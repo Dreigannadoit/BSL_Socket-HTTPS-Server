@@ -544,7 +544,7 @@ const HOTSPOT_CONTENT = {
         },
     },
 };
-w
+
 // Detects when the ball enters/exits a level-authored hotspot trigger and
 // owns the popup DOM element that displays each hotspot's content. Movement
 // itself isn't touched here — on entry it just calls the optional onEnter

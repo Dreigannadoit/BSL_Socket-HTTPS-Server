@@ -68,6 +68,16 @@ export function createBall(scene, world, ballMaterial) {
 
     const ballLoader = new GLTFLoader();
 
+    // Resolves once the ball's visual representation exists in the scene —
+    // either the real GLB model or (on failure) the procedural fallback
+    // sphere. Never rejects, so callers (see PlayerEntrance in main.js)
+    // can safely await it without their own catch. Used to know when it's
+    // safe to reveal the ball for the spawn-entrance animation.
+    let resolveReady;
+    const ready = new Promise((resolve) => {
+        resolveReady = resolve;
+    });
+
     function onBallGLTFLoaded(gltf) {
             const model = gltf.scene;
 
@@ -104,6 +114,7 @@ export function createBall(scene, world, ballMaterial) {
             ballGlow.setup(model);
 
             ballMesh.add(model);
+            resolveReady();
     }
 
     function onBallGLTFLoadError(err) {
@@ -118,6 +129,7 @@ export function createBall(scene, world, ballMaterial) {
         );
         fallbackMesh.layers.enable(BALL_COLOR_LAYER);
         ballMesh.add(fallbackMesh);
+        resolveReady();
     }
 
     // GLTFLoader.load() would fetch BALL_GLB_URL directly, which is the
@@ -131,5 +143,5 @@ export function createBall(scene, world, ballMaterial) {
         .then(onBallGLTFLoaded)
         .catch(onBallGLTFLoadError);
 
-    return { ballMesh, ballBody, ballGlow };
+    return { ballMesh, ballBody, ballGlow, ready };
 }

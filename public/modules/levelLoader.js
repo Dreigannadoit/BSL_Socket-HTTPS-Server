@@ -10,7 +10,13 @@ import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 // so it can compute fall bounds. (Ground fog is no longer authored
 // per-level — see PlayerFog, which tracks the player's height everywhere
 // instead of a fixed marker.)
-export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl = GLB_URL }) {
+//
+// onReady(spawnPos), if provided, fires once at the very end of a
+// successful load (spawnPos as a THREE.Vector3) so callers (see
+// PlayerEntrance in main.js) know exactly when it's safe to play the
+// spawn-entrance animation at the right position. On a load failure it
+// fires with null instead, so callers never hang waiting on it.
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl = GLB_URL, onReady }) {
     const loader = new GLTFLoader();
 
     function onLevelGLTFLoaded(gltf) {
@@ -126,11 +132,14 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brand
 
             hud.textContent =
                 `Loaded (5.6x world). ${colliderCount} collision meshes.`;
+
+            if (onReady) onReady(spawnPos);
     }
 
     function onLevelGLTFLoadError(err) {
         console.error(err);
         hud.textContent = "Failed to load maze_platform.glb — check console.";
+        if (onReady) onReady(null);
     }
 
     // GLTFLoader.load() would fetch levelUrl directly, which is the raw

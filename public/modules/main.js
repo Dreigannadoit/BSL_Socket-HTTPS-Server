@@ -20,6 +20,8 @@ import { MovableObjectSystem } from "./movableObjectSystem.js";
 import { MovableObjectBillboard } from "./movableObjectBillboard.js";
 import { FpsCounter } from "./fpsCounter.js";
 import { loadLevel } from "./levelLoader.js";
+import { LoadingScreen } from "./loadingScreen.js";
+import { PlayerEntrance } from "./playerEntrance.js";
 import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL } from "./config.js";
 
 // Boots the whole game — scene, physics, ball, camera, hotspots, game
@@ -30,6 +32,12 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     const hud = document.getElementById("hud");
     const fadeOverlay = document.getElementById("fade-overlay");
     const hotspotPopup = document.getElementById("hotspot-popup");
+
+    // ── Loading screen ──
+    // Covers the whole page from the very first frame until both the level
+    // and the ball model have finished loading — see the ballReady/
+    // levelReady handshake down near loadLevel() below.
+    const loadingScreen = new LoadingScreen();
 
     // ── Scene / camera / renderer ──
     const scene = new THREE.Scene();
@@ -66,7 +74,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     const { world, floorMaterial, wallMaterial, ballMaterial, addTrimeshCollider } = createPhysicsWorld();
 
     // ── Ball (render + physics) ──
-    const { ballMesh, ballBody, ballGlow } = createBall(scene, world, ballMaterial);
+    const { ballMesh, ballBody, ballGlow, ready: ballReady } = createBall(scene, world, ballMaterial);
 
     // ── Audio ──
     const audioManager = new AudioManager();
@@ -85,6 +93,15 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     const controls = new Controls();
     const player = new PlayerController(ballBody, world, controls.keys, audioManager);
     const cameraController = new CameraController(camera);
+
+    // ── Spawn-entrance animation ──
+    // Hides the ball and freezes input immediately — well before the level
+    // or ball model have actually finished loading — so there's nothing
+    // to see or move until the loading screen clears and the beam-drop
+    // sequence below reveals the player. See the ballReady/levelReady
+    // handshake near loadLevel() for exactly when that happens.
+    const playerEntrance = new PlayerEntrance(scene);
+    playerEntrance.hidePlayer(ballMesh, player);
 
     // ── Respawn / fall handling ──
     const respawnSystem = new RespawnSystem(ballBody, fadeOverlay, audioManager);
@@ -138,7 +155,43 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     const fpsCounter = new FpsCounter();
 
     // ── Level ──
-    loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl });
+    // The world (level GLB) and the ball (its own GLB, kicked off back in
+    // createBall()) load in parallel — the loading screen stays up and the
+    // player stays hidden/frozen (see playerEntrance.hidePlayer() above)
+    // until BOTH are ready, at which point the loading screen fades out
+    // and the beam-drop entrance plays at the level's actual spawn point.
+    let ballAssetReady = false;
+    let levelAssetReady = false;
+    let levelSpawnPos = null;
+
+    function tryRevealPlayer() {
+        if (!ballAssetReady || !levelAssetReady) return;
+        loadingScreen.hide();
+        if (levelSpawnPos) {
+            playerEntrance.play(levelSpawnPos);
+        } else {
+            // Level failed to load — nothing sensible to play the beam
+            // at, so just reveal the player where it is rather than
+            // leaving it invisible/frozen forever.
+            ballMesh.visible = true;
+            player.setFrozen(false);
+        }
+    }
+
+    ballReady.then(() => {
+        ballAssetReady = true;
+        tryRevealPlayer();
+    });
+
+    loadLevel({
+        scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog,
+        respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl,
+        onReady: (spawnPos) => {
+            levelAssetReady = true;
+            levelSpawnPos = spawnPos;
+            tryRevealPlayer();
+        },
+    });
 
     // ── Resize ──
     window.addEventListener("resize", () => {
@@ -188,6 +241,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         ballGlow.update(player.inputHoldTime);
         glowPath.update(clock.elapsedTime);
         brandGlow.update(clock.elapsedTime);
+        playerEntrance.update(dt, clock.elapsedTime);
         playerFog.update(ballMesh.position);
         hotspotSystem.update(ballMesh.position);
         hotspotSystem.updateGlow(clock.elapsedTime);
