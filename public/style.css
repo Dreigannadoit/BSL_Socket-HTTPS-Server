@@ -27,8 +27,20 @@ canvas {
 
     height: 100%;
     width: 100%;
-    
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+
+    color: #FAFAF2;
 }
+
+#hug img {
+    height: 300px;
+}
+
+
 
 /* Fullscreen fade-to-black transition, driven every frame from game.js
      (opacity is set directly rather than via CSS transitions so it can be

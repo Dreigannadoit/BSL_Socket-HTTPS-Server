@@ -142,7 +142,7 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brand
             }
 
             hud.textContent =
-                `Loaded (5.6x world). ${colliderCount} collision meshes.`;
+                ``;
 
             if (onReady) onReady(spawnPos);
     }

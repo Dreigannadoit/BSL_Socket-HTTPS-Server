@@ -7,23 +7,29 @@
     <link rel="stylesheet" href="/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        rel="stylesheet">
 </head>
 
 <body class="about">
-    <div id="hud">WASD / Arrow keys to roll. Loading...</div>
+    <div id="hud">
+        <img src="assets/IconMe_animated.svg" alt="">
+        <br>
+        <h1>A Drei Abmab© Project</h1>
+    </div>
     <div id="fade-overlay"></div>
     <div id="hotspot-popup"></div>
 
     <script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-    "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
-  }
-}
-</script>
+        {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+        }
+        }
+    </script>
+
     <script type="module" src="./about.js"></script>
     <!-- Dev-only: auto-refreshes the page when scripts/dev-watch.js sees a
          saved html/css/js change. Harmless if that watcher isn't running. -->
