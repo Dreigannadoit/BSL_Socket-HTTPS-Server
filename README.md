@@ -3,7 +3,7 @@
 A very simple game served entirely by a hand-rolled HTTP server
 written in the **Bonezegei Scripting Language (BSL)**.
 
-![mage of Unity Build screenshot](documentation/unity.png)
+![mage of Unity Build screenshot](documentation/Unity.png)
 #####  <center>Image of Unity Build</center>
 
 
