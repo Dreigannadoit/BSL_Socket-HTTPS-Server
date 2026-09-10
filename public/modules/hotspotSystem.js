@@ -16,9 +16,8 @@ const HOTSPOT_CONTENT = {
         <div class="start_card">
             <h5>Hello, World!</h5>
             <br>
-            <h1>Maze-Ball</h1>
+            <h1>Project Balls</h1>
             <p>A Project by Drei</p>
-            <p>Inspired by Netlify's 5 mil+ celebration</p>
         </div>
 
         <div class="start_menu_container">
@@ -109,6 +108,22 @@ const HOTSPOT_CONTENT = {
                         <br>
                         <br>
                         <br>
+                        <p><b>Under Development</b></p>
+                        <h1>2-Player rush</h1>
+                        <p>Compete with your freinds by collecting 20 orbs scattered throughout the map. The firts one to collect and bring and reach the end checkpoint wins. </p>
+                    </div>
+
+                    <div class="start_menu coming_soon">
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
+                        <br>
                         <p><b>Coming Soon</b></p>
                         <h1>Spawn Chase</h1>
                         <p>Find and collect all 10 orbs as quickly as possible—one at a time within 6 minutes. Each orb only appears after the last has been captured, so stay alert and keep moving.</p>
@@ -129,7 +144,6 @@ const HOTSPOT_CONTENT = {
                         <h1>Collect Them all</h1>
                         <p>There are 100+ orbs scatered across the map. Find them and collect them all as fas as you can. The faste the more point you earn.</p>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -238,13 +252,13 @@ const HOTSPOT_CONTENT = {
         </div>
     </div>
 
-    <div class="side_wrapper">
+    <!--div class="side_wrapper">
         <div class="side">
             <h2>HOT</h2>
             <h3>SPOT</h3>
             <h1>2</h1>
         </div>
-    </div>
+    </div-->
     `,
         // Same b64-resolution pattern as Hotspot_1. Slider has three ways to
         // advance: the .slider_buttons prev/next pair up top, and the single

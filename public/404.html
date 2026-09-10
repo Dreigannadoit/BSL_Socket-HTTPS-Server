@@ -3,9 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Project Balls || No Page</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        rel="stylesheet">
+</head>
 </head>
 <body>
-    Wrong Page Bud
+    <div class="_404">
+        <div class="icon">
+            <img src="./assets/IconMe.svg" alt="">
+            <p>?</p>
+        </div>
+        <br>
+        <br>
+
+        <h2>Ooops?!</h2>
+        <h1>The Page you're looking for</h1>
+        <h1>does not exist.</h1>
+
+        <br>
+
+        <button onclick="window.location.href='/home'">Back Home</button>
+    </div>
+
+    <script>
+        const icon = document.querySelector('.icon');
+
+        icon.addEventListener('click', () => {
+            icon.classList.remove('clicked');
+
+            // Restart animation
+            void icon.offsetWidth;
+
+            icon.classList.add('clicked');
+        });
+    </script>
 </body>
 </html>

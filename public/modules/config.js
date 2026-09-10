@@ -543,7 +543,7 @@ export const MOVABLE_RESET_GLOW_COLOR = 0xffaa33;
 export const ROUTE_TRIGGERS_ROOT_NAME = "RouteBasedTriggers";
 export const ROUTE_TRIGGER_CONTENT = {
     ToAboutPageTrigger: {
-        label: "AboutPage",
+        label: "About Page",
         // Resolved against the CURRENT page's URL at navigation time
         // (rather than a baked-in absolute path) so this keeps working
         // whether the game is served from "http://localhost:5050/",
@@ -551,6 +551,16 @@ export const ROUTE_TRIGGER_CONTENT = {
         // the dev server serves the about page at that clean route rather
         // than at "about.html" directly.
         url: () => new URL("about", window.location.href).href,
+    },
+    ToHomePageTrigger: {
+        label: "Home Page",
+        // Resolved against the CURRENT page's URL at navigation time
+        // (rather than a baked-in absolute path) so this keeps working
+        // whether the game is served from "http://localhost:5050/",
+        // a real domain, or a sub-path. Targets "about" (no extension) —
+        // the dev server serves the about page at that clean route rather
+        // than at "about.html" directly.
+        url: () => new URL("home", window.location.href).href,
     },
     ToGithub: {
         label: "My Github",
