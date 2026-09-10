@@ -14,22 +14,6 @@ body {
     font-family: "Plus Jakarta Sans", sans-serif;
     font-optical-sizing: auto;
 }
-
-.test{
-    position: relative;
-    height: 100%;
-    width: 100%;
-}
-
-.test img{
-    position: fixed;
-    top: 0;
-    left: 0;
-    object-fit: cover;
-    height: 100%;
-    width: 100%;
-}
-
 canvas {
     display: block;
     z-index: 1;
@@ -38,17 +22,12 @@ canvas {
 
 #hud {
     position: fixed;
-    top: 10px;
-    left: 10px;
-    color: #eee;
-    font-family: monospace;
-    font-size: 13px;
-    z-index: 10;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 8px 12px;
-    border-radius: 6px;
-    pointer-events: none;
-    white-space: pre-line;
+    top: 0px;
+    left: 0px;
+
+    height: 100%;
+    width: 100%;
+    
 }
 
 /* Fullscreen fade-to-black transition, driven every frame from game.js

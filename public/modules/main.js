@@ -18,10 +18,13 @@ import { GameModeManager } from "./gameModeManager.js";
 import { GameModeUI } from "./gameModeUI.js";
 import { MovableObjectSystem } from "./movableObjectSystem.js";
 import { MovableObjectBillboard } from "./movableObjectBillboard.js";
+import { RouteTriggerSystem } from "./routeTriggerSystem.js";
+import { RouteTriggerBillboard } from "./routeTriggerBillboard.js";
 import { FpsCounter } from "./fpsCounter.js";
 import { loadLevel } from "./levelLoader.js";
 import { LoadingScreen } from "./loadingScreen.js";
 import { PlayerEntrance } from "./playerEntrance.js";
+import { PlayerExit } from "./playerExit.js";
 import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL } from "./config.js";
 
 // Boots the whole game — scene, physics, ball, camera, hotspots, game
@@ -29,6 +32,25 @@ import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL } from "./config.js";
 // (game.js, default maze GLB) and the about page (about.js), which is
 // identical in every way except which world it loads — see `levelUrl`.
 export function startGame({ levelUrl = GLB_URL } = {}) {
+    // ── bfcache guard ──
+    // Many browsers (Safari/Firefox always, Chrome often) restore a page
+    // from the back-forward cache on Back/Forward navigation instead of
+    // actually re-running it — the entire JS heap (frozen player, hidden
+    // ball, a completed PlayerExit sequence, whatever state a route
+    // trigger left things in) comes back exactly as it was the instant the
+    // player left, rather than the fresh boot a normal reload would give.
+    // "pageshow" fires on every page display, including this restoration —
+    // event.persisted is true ONLY for the bfcache case, never for a
+    // regular first load — so forcing a real reload there is the standard
+    // fix: it throws away the frozen JS state and re-runs this whole
+    // module from scratch, landing back at the loading screen -> spawn ->
+    // entrance animation exactly like arriving fresh.
+    window.addEventListener("pageshow", (event) => {
+        if (event.persisted) {
+            window.location.reload();
+        }
+    });
+
     const hud = document.getElementById("hud");
     const fadeOverlay = document.getElementById("fade-overlay");
     const hotspotPopup = document.getElementById("hotspot-popup");
@@ -145,6 +167,26 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         ui: movableObjectBillboard,
     });
 
+    // ── Route-based page-navigation triggers ──
+    // "Press Enter for <label>" markers (About page / Github / LinkedIn /
+    // ...) authored under the level GLB's "RouteBasedTriggers" group — same
+    // camera-facing-billboard + box-trigger pattern as the movable-object
+    // reset prompt above, just navigating the page instead of resetting
+    // props. Confirming one plays PlayerExit's reverse spawn-beam (see
+    // playerExit.js) at the ball's current position before the page
+    // actually navigates, so leaving reads as the mirror image of arriving.
+    const routeTriggerBillboard = new RouteTriggerBillboard(scene, camera, renderer.domElement);
+    const playerExit = new PlayerExit(scene);
+    const routeTriggerSystem = new RouteTriggerSystem({
+        scene,
+        ui: routeTriggerBillboard,
+        onNavigate: (url) => {
+            playerExit.play(ballMesh, player, ballMesh.position, () => {
+                window.location.href = url;
+            });
+        },
+    });
+
     // ── Dev tools panel (right-middle of screen) ──
     // Every feature in here (hotspot teleport, freeze, hotspot hide/restore/
     // force-trigger, mode switcher, Time Trial cheats) is off/inert until
@@ -185,7 +227,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
 
     loadLevel({
         scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog,
-        respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl,
+        respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, routeTriggerSystem, hud, levelUrl,
         onReady: (spawnPos) => {
             levelAssetReady = true;
             levelSpawnPos = spawnPos;
@@ -242,11 +284,13 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         glowPath.update(clock.elapsedTime);
         brandGlow.update(clock.elapsedTime);
         playerEntrance.update(dt, clock.elapsedTime);
+        playerExit.update(dt, clock.elapsedTime);
         playerFog.update(ballMesh.position);
         hotspotSystem.update(ballMesh.position);
         hotspotSystem.updateGlow(clock.elapsedTime);
         gameModeManager.update(dt, ballMesh.position, clock.elapsedTime);
         movableObjectSystem.update(ballMesh.position, clock.elapsedTime);
+        routeTriggerSystem.update(ballMesh.position, clock.elapsedTime);
         // One frame behind (uses this frame's hotspot check, applied to next
         // frame's movement) — same lag every other hotspot-driven system here
         // already has, and not perceptible at 60fps.
@@ -258,6 +302,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
             rotationRadians: devTools.getManualCameraRotationRadians(),
         });
         movableObjectBillboard.update(camera);
+        routeTriggerBillboard.update(camera);
         updateSky(camera.position, dt);
         bloomRenderer.setHotspotActive(devTools.grayscalePreview || hotspotSystem.isActive);
         bloomRenderer.render();

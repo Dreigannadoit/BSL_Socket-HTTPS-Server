@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEARCOAT_ROUGHNESS } from "./config.js";
+import { GLB_URL, WORLD_ROUGHNESS, WORLD_METALNESS, WORLD_CLEARCOAT, WORLD_CLEARCOAT_ROUGHNESS, ROUTE_TRIGGERS_ROOT_NAME } from "./config.js";
 import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 
 // Loads the level GLB, builds physics colliders from its "CollisionShapes"
@@ -16,7 +16,7 @@ import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 // PlayerEntrance in main.js) know exactly when it's safe to play the
 // spawn-entrance animation at the right position. On a load failure it
 // fires with null instead, so callers never hang waiting on it.
-export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, hud, levelUrl = GLB_URL, onReady }) {
+export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brandGlow, playerFog, respawnSystem, hotspotSystem, gameModeManager, movableObjectSystem, routeTriggerSystem, hud, levelUrl = GLB_URL, onReady }) {
     const loader = new GLTFLoader();
 
     function onLevelGLTFLoaded(gltf) {
@@ -31,6 +31,7 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brand
             const glowPathRoot = root.getObjectByName("GlowPath");
             const brandRoot = root.getObjectByName("Brand");
             const hotspotsRoot = root.getObjectByName("Hotspots");
+            const routeTriggersRoot = root.getObjectByName(ROUTE_TRIGGERS_ROOT_NAME);
 
             const spawnPos = new THREE.Vector3();
             if (spawnNode) {
@@ -118,6 +119,16 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brand
                 console.warn('No "Hotspots" node found — skipping hotspot triggers.');
             }
 
+            // RouteBasedTriggers — "Press Enter for <label>" markers that
+            // navigate the page (About page / Github / LinkedIn / ...).
+            if (routeTriggerSystem) {
+                if (routeTriggersRoot) {
+                    routeTriggerSystem.setup(routeTriggersRoot);
+                } else {
+                    console.warn(`No "${ROUTE_TRIGGERS_ROOT_NAME}" node found — skipping route-based page triggers.`);
+                }
+            }
+
             // StartTrigger / EndTrigger / Collectables — powers the
             // selectable game modes (Free Roam / Speedrun / Time Trial).
             gameModeManager.onLevelLoaded({ root });
@@ -138,7 +149,7 @@ export function loadLevel({ scene, ballBody, addTrimeshCollider, glowPath, brand
 
     function onLevelGLTFLoadError(err) {
         console.error(err);
-        hud.textContent = "Failed to load maze_platform.glb — check console.";
+        hud.textContent = "Failed to load maze_platform_high.glb — check console.";
         if (onReady) onReady(null);
     }
 

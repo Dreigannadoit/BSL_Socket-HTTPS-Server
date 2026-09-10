@@ -20,6 +20,77 @@ function easeInCubic(t) {
     return t * t * t;
 }
 
+export { easeOutCubic, easeInCubic };
+
+// Builds one independent set of beam + ring visuals (the "spawn beam" look)
+// and adds them to `scene`, already hidden. Shared by PlayerEntrance and
+// PlayerExit (see playerExit.js) so the exit's reverse-beam effect reads as
+// the exact same visual, just played the other way around and triggered by
+// a route trigger instead of level load. Each caller gets its OWN beam/ring
+// meshes (not a shared instance) — same reasoning as GlowPath/brandGlow
+// being separate instances rather than one shared one, so an in-progress
+// entrance and an in-progress exit (edge case: a dev-tool teleport firing
+// right as the player also confirms a route trigger) can never fight over
+// the same THREE.Group's scale/position.
+export function createEntranceBeamVisuals(scene) {
+    const height = ENTRANCE_BEAM_HEIGHT;
+    const radius = ENTRANCE_BEAM_RADIUS;
+
+    const beamPivot = new THREE.Group();
+    beamPivot.visible = false;
+    scene.add(beamPivot);
+
+    // Bright emissive core — the "solid" part of the beam, picked up by
+    // BloomRenderer's selective bloom pass the same way GlowPath's neon
+    // meshes are (see glowPath.js).
+    const coreGeometry = new THREE.CylinderGeometry(radius * 0.35, radius * 0.35, height, 24, 1, true);
+    coreGeometry.translate(0, -height / 2, 0); // top edge at local y = 0
+    const coreMaterial = new THREE.MeshBasicMaterial({
+        color: ENTRANCE_BEAM_COLOR,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+    });
+    const coreMesh = new THREE.Mesh(coreGeometry, coreMaterial);
+    coreMesh.layers.enable(BLOOM_LAYER);
+    beamPivot.add(coreMesh);
+
+    // Soft outer shell at the full requested radius — a Fresnel/rim
+    // material (same helper GlowPath uses for its optional halo shells) so
+    // it's brightest at the silhouette and fades toward the center, giving
+    // the beam volume instead of a flat glowing tube.
+    const shellGeometry = new THREE.CylinderGeometry(radius, radius, height, 32, 1, true);
+    shellGeometry.translate(0, -height / 2, 0);
+    const shellMaterial = createGlowShellMaterial(ENTRANCE_BEAM_COLOR, 0.55, 1.6);
+    const shellMesh = new THREE.Mesh(shellGeometry, shellMaterial);
+    shellMesh.layers.enable(BLOOM_LAYER);
+    beamPivot.add(shellMesh);
+
+    // Flat impact-flash ring, laid on the floor, triggered the instant the
+    // beam reaches the ground. Pure additive glow, no geometry depth, so it
+    // reads as a quick pulse of light rather than a physical object.
+    const ringGeometry = new THREE.RingGeometry(0.6, 1, 48);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+        color: ENTRANCE_BEAM_COLOR,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+    });
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.rotation.x = -Math.PI / 2;
+    ring.visible = false;
+    ring.layers.enable(BLOOM_LAYER);
+    scene.add(ring);
+
+    return { beamPivot, coreMesh, shellMesh, ring };
+}
+
 // Plays the one-time "spawn beam" entrance: the ball starts invisible and
 // frozen (see hidePlayer(), called immediately once the ball/player exist —
 // well before either the level or the ball model have finished loading), a
@@ -43,68 +114,11 @@ export class PlayerEntrance {
         this.ballMesh = null;
         this.player = null;
 
-        this._buildBeam();
-        this._buildRing();
-    }
-
-    _buildBeam() {
-        const height = ENTRANCE_BEAM_HEIGHT;
-        const radius = ENTRANCE_BEAM_RADIUS;
-
-        this.beamPivot = new THREE.Group();
-        this.beamPivot.visible = false;
-        this.scene.add(this.beamPivot);
-
-        // Bright emissive core — the "solid" part of the beam, picked up
-        // by BloomRenderer's selective bloom pass the same way GlowPath's
-        // neon meshes are (see glowPath.js).
-        const coreGeometry = new THREE.CylinderGeometry(radius * 0.35, radius * 0.35, height, 24, 1, true);
-        coreGeometry.translate(0, -height / 2, 0); // top edge at local y = 0
-        const coreMaterial = new THREE.MeshBasicMaterial({
-            color: ENTRANCE_BEAM_COLOR,
-            transparent: true,
-            opacity: 0.9,
-            side: THREE.DoubleSide,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            toneMapped: false,
-        });
-        this.coreMesh = new THREE.Mesh(coreGeometry, coreMaterial);
-        this.coreMesh.layers.enable(BLOOM_LAYER);
-        this.beamPivot.add(this.coreMesh);
-
-        // Soft outer shell at the full requested radius — a Fresnel/rim
-        // material (same helper GlowPath uses for its optional halo
-        // shells) so it's brightest at the silhouette and fades toward the
-        // center, giving the beam volume instead of a flat glowing tube.
-        const shellGeometry = new THREE.CylinderGeometry(radius, radius, height, 32, 1, true);
-        shellGeometry.translate(0, -height / 2, 0);
-        const shellMaterial = createGlowShellMaterial(ENTRANCE_BEAM_COLOR, 0.55, 1.6);
-        this.shellMesh = new THREE.Mesh(shellGeometry, shellMaterial);
-        this.shellMesh.layers.enable(BLOOM_LAYER);
-        this.beamPivot.add(this.shellMesh);
-    }
-
-    _buildRing() {
-        // Flat impact-flash ring, laid on the floor, triggered the instant
-        // the beam reaches the ground. Pure additive glow, no geometry
-        // depth, so it reads as a quick pulse of light rather than a
-        // physical object.
-        const geometry = new THREE.RingGeometry(0.6, 1, 48);
-        const material = new THREE.MeshBasicMaterial({
-            color: ENTRANCE_BEAM_COLOR,
-            transparent: true,
-            opacity: 0,
-            side: THREE.DoubleSide,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false,
-            toneMapped: false,
-        });
-        this.ring = new THREE.Mesh(geometry, material);
-        this.ring.rotation.x = -Math.PI / 2;
-        this.ring.visible = false;
-        this.ring.layers.enable(BLOOM_LAYER);
-        this.scene.add(this.ring);
+        const { beamPivot, coreMesh, shellMesh, ring } = createEntranceBeamVisuals(scene);
+        this.beamPivot = beamPivot;
+        this.coreMesh = coreMesh;
+        this.shellMesh = shellMesh;
+        this.ring = ring;
         this.ringActive = false;
         this.ringElapsed = 0;
     }

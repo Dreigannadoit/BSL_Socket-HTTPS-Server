@@ -528,3 +528,70 @@ export const MOVABLE_RESET_POPUP_HEIGHT = 1;
 // reads as a distinct "utility" marker rather than another neon-path
 // hotspot (same emissive/bloom material trick as HotspotSystem._setupGlow).
 export const MOVABLE_RESET_GLOW_COLOR = 0xffaa33;
+
+// ── Route-based page-navigation triggers ──
+// Level-authored "RouteBasedTriggers" group, read via a plain
+// root.getObjectByName() in levelLoader (same convention as "Hotspots"/
+// "GlowPath" — there's only ever one of these, so unlike
+// MovableObjectSection there's no need for prefix/duplicate-name
+// matching). Each direct child is a small marker (same authoring style as
+// MovableObjectResetTrigger) that, once rolled onto, shows a camera-facing
+// "Press Enter for <label>" 3D billboard (see routeTriggerBillboard.js) and
+// — if the player presses Enter while still standing on it — navigates the
+// whole page to `url`. Add an entry here for every new trigger node
+// authored under "RouteBasedTriggers" in the level GLB.
+export const ROUTE_TRIGGERS_ROOT_NAME = "RouteBasedTriggers";
+export const ROUTE_TRIGGER_CONTENT = {
+    ToAboutPageTrigger: {
+        label: "AboutPage",
+        // Resolved against the CURRENT page's URL at navigation time
+        // (rather than a baked-in absolute path) so this keeps working
+        // whether the game is served from "http://localhost:5050/",
+        // a real domain, or a sub-path. Targets "about" (no extension) —
+        // the dev server serves the about page at that clean route rather
+        // than at "about.html" directly.
+        url: () => new URL("about", window.location.href).href,
+    },
+    ToGithub: {
+        label: "My Github",
+        url: "https://github.com/Dreigannadoit",
+    },
+    ToLinkedIn: {
+        label: "My Linkedin",
+        url: "https://www.linkedin.com/in/dreiabmab1/",
+    },
+};
+
+// Route-trigger marker glow — yellow, same emissive/bloom material trick as
+// GlowPath/HotspotSystem/MovableObjectResetTrigger's markers, just its own
+// color so route triggers read as their own distinct marker type. A touch
+// more gold than pure yellow (0xffe600) specifically so it doesn't sit at
+// near-maximal R+G — BloomRenderer composites bloom as a flat, unclamped
+// additive add (see its mixPass), so a near-white source blows out far
+// harder than an amber/blue one at the identical emissiveIntensity.
+export const ROUTE_TRIGGER_GLOW_COLOR = 0xf2c200;
+
+// Route triggers pulse MUCH dimmer than GlowPath/HotspotSystem/
+// MovableObjectResetTrigger's shared 2.2-3.4 "core" range — those markers
+// don't have anything reading text floating right above them, but the
+// route-trigger billboard sits close enough to its own marker that the
+// bloom halo would otherwise wash out the "Press Enter for ..." text.
+// Kept just above BloomRenderer's UnrealBloomPass threshold (1.0) so the
+// marker still visibly glows, just faintly — same idea as
+// END_WALL_EMISSIVE_INTENSITY.
+export const ROUTE_TRIGGER_GLOW_MIN_INTENSITY = 1.05;
+export const ROUTE_TRIGGER_GLOW_MAX_INTENSITY = 1.45;
+
+// Meters directly above a route trigger's authored position that its
+// "Press Enter for ..." billboard is anchored — a bit higher than
+// MOVABLE_RESET_POPUP_HEIGHT's 1m specifically to put more distance
+// between the panel and the bloom halo below it.
+export const ROUTE_TRIGGER_POPUP_HEIGHT = 1.5;
+
+// Extra meters added to a trigger's own footprint radius (+ BALL_RADIUS)
+// once it's active, before it's considered "left" — the same
+// enter-radius/exit-radius hysteresis gap HotspotSystem uses
+// (HOTSPOT_ENTER_RADIUS/HOTSPOT_EXIT_RADIUS), just expressed as a delta
+// here since each route trigger's own enter radius is computed from its
+// authored geometry rather than being one shared constant.
+export const ROUTE_TRIGGER_EXIT_BUFFER = 0.25;
