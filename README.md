@@ -167,6 +167,8 @@ A successful start prints:
 ```
 Server running on http://localhost:5050/
 ```
+*Note:* My current Setup does not allow to run on Port 8080 because I have my MySQL server running there.
+
 
 ---
 

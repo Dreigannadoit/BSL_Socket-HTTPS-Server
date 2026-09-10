@@ -14,8 +14,15 @@ import {
     TRIGGER_EXPAND,
     GLOW_COLOR,
     GLOW_COLOR_ALERT,
+    ASSET_BASE,
 } from "./config.js";
 import { EndTriggerEffect } from "./endTriggerEffect.js";
+import { fetchAssetBlobURL } from "./binaryAssetLoader.js";
+
+// StartTrigger's opacity while passable (mode chosen, ball free to roll
+// through) — low but non-zero so it still reads as "the arch" rather than
+// fully disappearing. 1 (opaque) while it's still a solid blocker.
+const START_TRIGGER_PASSABLE_OPACITY = 0.15;
 
 const MODE_LABELS = {
     [GAME_MODE_FREE_ROAM]: "Free Roam",
@@ -93,7 +100,10 @@ export class GameModeManager {
         const collectablesRoot = root.getObjectByName("Collectables");
 
         if (this.startTriggerMesh) {
-            this.startTriggerMesh.visible = false;
+            // Now rendered (was hidden before) so the Road_Block texture
+            // below is actually visible — it's still the same solid
+            // collider/trigger volume underneath.
+            this.startTriggerMesh.visible = true;
             this.startBounds = new THREE.Box3()
                 .setFromObject(this.startTriggerMesh)
                 .expandByScalar(BALL_RADIUS + TRIGGER_EXPAND);
@@ -101,6 +111,7 @@ export class GameModeManager {
             // the player from the course before choosing one.
             this.startTriggerBody = this.addTrimeshCollider(this.startTriggerMesh);
             this.startTriggerBlocking = true;
+            this._applyStartTriggerTexture();
         } else {
             console.warn('GameModeManager: no "StartTrigger" node found — game modes are disabled.');
         }
@@ -138,6 +149,70 @@ export class GameModeManager {
         }
     }
 
+    // Swaps StartTrigger's material for one textured with Road_Block.jpg.
+    // Fetched via the base64 sidecar pipeline (see binaryAssetLoader.js)
+    // like every other binary asset here, then handed to a plain
+    // THREE.TextureLoader since this is a real in-scene material map
+    // rather than a DOM <img>/<video> src.
+    _applyStartTriggerTexture() {
+        fetchAssetBlobURL(ASSET_BASE + "Road_Block.jpg", "image/jpeg")
+            .then((blobUrl) => {
+                new THREE.TextureLoader().load(
+                    blobUrl,
+                    (texture) => {
+                        if ("colorSpace" in texture) texture.colorSpace = THREE.SRGBColorSpace;
+                        this.startTriggerMesh.material = new THREE.MeshStandardMaterial({
+                            map: texture,
+                            transparent: true,
+                        });
+                        // Material loads asynchronously and may arrive after
+                        // startTriggerBlocking has already changed (e.g. a
+                        // mode picked while the texture was still in
+                        // flight) — sync its opacity to whatever the
+                        // current state actually is rather than assuming
+                        // it's still the initial solid one.
+                        this._updateStartTriggerOpacity();
+                        URL.revokeObjectURL(blobUrl);
+                    },
+                    undefined,
+                    (err) => {
+                        console.error("GameModeManager: failed to load Road_Block.jpg texture:", err);
+                        URL.revokeObjectURL(blobUrl);
+                    }
+                );
+            })
+            .catch((err) => console.error("GameModeManager: failed to fetch Road_Block.jpg:", err));
+    }
+
+    // Single point of truth for "is StartTrigger currently a solid
+    // blocker" — adds/removes its physics body and keeps its material's
+    // opacity in sync (solid = opaque, passable = see-through). No-ops if
+    // already in the requested state, since the physics world throws if
+    // you remove a body that isn't in it (or add one that already is).
+    _setStartTriggerBlocking(blocking) {
+        if (!this.startTriggerBody || this.startTriggerBlocking === blocking) return;
+        if (blocking) {
+            this.world.addBody(this.startTriggerBody);
+        } else {
+            this.world.removeBody(this.startTriggerBody);
+        }
+        this.startTriggerBlocking = blocking;
+        this._updateStartTriggerOpacity();
+    }
+
+    // Applies the current blocking state to the material. Separate from
+    // _setStartTriggerBlocking so the texture-load callback can also call
+    // it once the material actually exists (it loads asynchronously, so
+    // it may not be ready yet the first time blocking state changes).
+    _updateStartTriggerOpacity() {
+        const mat = this.startTriggerMesh && this.startTriggerMesh.material;
+        if (!mat) return;
+        mat.opacity = this.startTriggerBlocking ? 1 : START_TRIGGER_PASSABLE_OPACITY;
+        // Avoid a translucent StartTrigger writing depth and occluding
+        // things behind it oddly; only matters while opacity < 1.
+        mat.depthWrite = this.startTriggerBlocking;
+    }
+
     getMode() {
         return this.mode;
     }
@@ -156,10 +231,7 @@ export class GameModeManager {
         this.ui.flashMessage(`${MODE_LABELS[mode]} selected. Pass through the arch opening to begin`);
 
         // StartTrigger becomes passable the moment a mode is chosen.
-        if (this.startTriggerBlocking) {
-            this.world.removeBody(this.startTriggerBody);
-            this.startTriggerBlocking = false;
-        }
+        this._setStartTriggerBlocking(false);
 
         if (mode === GAME_MODE_FREE_ROAM) {
             this.hotspotSystem.restoreAll();
@@ -247,8 +319,7 @@ export class GameModeManager {
         if (!this._pendingStartLock || !this.startBounds || !this.startTriggerBody) return;
         const inside = this.startBounds.containsPoint(ballPosition);
         if (!inside) {
-            this.world.addBody(this.startTriggerBody);
-            this.startTriggerBlocking = true;
+            this._setStartTriggerBlocking(true);
             this._pendingStartLock = false;
         }
     }
@@ -399,10 +470,7 @@ export class GameModeManager {
         this.ui.setMode(null);
 
         // StartTrigger blocks again until a new mode is chosen.
-        if (this.startTriggerBody && !this.startTriggerBlocking) {
-            this.world.addBody(this.startTriggerBody);
-            this.startTriggerBlocking = true;
-        }
+        this._setStartTriggerBlocking(true);
 
         this.hotspotSystem.restoreAll();
 

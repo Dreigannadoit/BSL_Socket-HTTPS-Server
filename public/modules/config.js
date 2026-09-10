@@ -49,12 +49,19 @@ export const MOVABLE_PROP_CLIMB_TOLERANCE = 0.03;
 // Piecewise speed-fraction curve driven by how long input has been held,
 // not by a generic ease. Reaches 100% of MAX_SPEED at exactly 900ms.
 export function getAccelFraction(holdMs) {
-    if (holdMs <= 800) {
+    // Branch cutoffs must match the interpolation breakpoints used inside
+    // each branch (500/700/900). They previously read 800/1000/1100 — a
+    // 300ms offset bug — which let each phase keep interpolating past its
+    // intended endpoint (phase 0 reached 0.8 instead of capping at 0.50,
+    // phase 2 reached 1.29 instead of capping at 1.0) before snapping back
+    // down at the next boundary. That snap-back is what made held input
+    // feel rough/jerky instead of a smooth ramp to 100% at 900ms.
+    if (holdMs <= 500) {
         return lerp(0, 0.50, holdMs / 500);
-    } else if (holdMs <= 1000) {
+    } else if (holdMs <= 700) {
         const t = (holdMs - 500) / (700 - 500);
         return lerp(0.51, 0.70, t);
-    } else if (holdMs <= 1100) {
+    } else if (holdMs <= 900) {
         const t = (holdMs - 700) / (900 - 700);
         return lerp(0.71, 1.0, t);
     }
@@ -75,15 +82,16 @@ function lerp(a, b, t) {
 export function getStartHoldMs(speedFraction) {
     const frac = Math.min(Math.max(speedFraction, 0), 1);
     if (frac <= 0) return 0;
-    // holdMs > 1100 is where getAccelFraction flattens out to exactly
-    // 1.0 — using 1100 itself would land on the phase-2 formula's peak,
-    // which currently overshoots to 1.29 rather than capping at 1.0.
-    if (frac >= 1) return 1101;
+    // holdMs > 900 is where getAccelFraction now flattens out to exactly
+    // 1.0 (matching the fixed breakpoints above) — using 900 itself would
+    // land right on the phase-2 formula's endpoint, which is fine (it's
+    // exactly 1.0 there), so 901 just keeps us a hair past it.
+    if (frac >= 1) return 901;
 
     // Binary search since getAccelFraction is monotonic (barring tiny
     // dips right at its phase seams, which this is robust to in practice).
     let lo = 0;
-    let hi = 1100;
+    let hi = 900;
     for (let i = 0; i < 25; i++) {
         const mid = (lo + hi) / 2;
         if (getAccelFraction(mid) < frac) {

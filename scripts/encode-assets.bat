@@ -20,7 +20,7 @@ REM bytes in the browser.
 setlocal enabledelayedexpansion
 cd /d "%~dp0\..\public\assets"
 
-set FILES=bounce1.mp3 bounce2.mp3 bounce3.mp3 bounce4.mp3 bounce5.mp3 engine.mp3 hotspot.mp3 rolling.mp3 ball.glb maze_platform_high.glb FreeRoam.png Speedrun.mp4 TimeTrial.mp4 Hotspot_2.png Hotspot_3.png Hotspot_Head_3.png IconMe.svg Hotspot_4.png Hotspot_Head_4.jpg Hotspot_5.png Hotspot_Head_5.jpg 
+set FILES=bounce1.mp3 bounce2.mp3 bounce3.mp3 bounce4.mp3 bounce5.mp3 engine.mp3 hotspot.mp3 rolling.mp3 ball.glb maze_platform_high.glb FreeRoam.png Speedrun.mp4 TimeTrial.mp4 Hotspot_2.png Hotspot_3.png Hotspot_Head_3.png IconMe.svg Hotspot_4.png Hotspot_Head_4.jpg Hotspot_5.png Hotspot_Head_5.jpg Road_Block.jpg
 
 for %%F in (%FILES%) do (
     if exist "%%F" (

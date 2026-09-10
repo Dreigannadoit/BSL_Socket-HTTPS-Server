@@ -34,7 +34,12 @@ export function createPhysicsWorld() {
         friction: 0.55,
         restitution: 0.45,
         contactEquationStiffness: 1e8,
-        contactEquationRelaxation: 3,
+        // Was 3 — that spread the contact's resolution force over ~3x as
+        // many substeps as the floor's, which read as the ball "sinking
+        // into"/sticking to the wall briefly before separating instead of
+        // bouncing off immediately. Matching the floor's value here gives
+        // a crisp, same-frame separation on wall impacts too.
+        contactEquationRelaxation: 1,
     });
     world.addContactMaterial(wallContact);
 
