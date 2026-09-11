@@ -25,7 +25,7 @@ import { loadLevel } from "./levelLoader.js";
 import { LoadingScreen } from "./loadingScreen.js";
 import { PlayerEntrance } from "./playerEntrance.js";
 import { PlayerExit } from "./playerExit.js";
-import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL } from "./config.js";
+import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL, GAME_MODE_SPEEDRUN } from "./config.js";
 
 // Boots the whole game — scene, physics, ball, camera, hotspots, game
 // modes, dev tools, and the level itself. Used by both the main game
@@ -279,7 +279,12 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         ballMesh.position.copy(ballBody.position);
         ballMesh.quaternion.copy(ballBody.quaternion);
 
-        audioManager.update(dt, ballBody, controls.keys);
+        // Speed FOV/shake/pitch-shift are Speedrun-only — see
+        // CameraController.update()'s speedFxActive param and
+        // AudioManager.update()'s below.
+        const speedFxActive = gameModeManager.getMode() === GAME_MODE_SPEEDRUN;
+
+        audioManager.update(dt, ballBody, controls.keys, speedFxActive);
         ballGlow.update(player.inputHoldTime);
         glowPath.update(clock.elapsedTime);
         brandGlow.update(clock.elapsedTime);
@@ -300,7 +305,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
             lookAtPlayer: devTools.lookAtPlayer,
             position: devTools.manualCameraPosition,
             rotationRadians: devTools.getManualCameraRotationRadians(),
-        });
+        }, clock.elapsedTime, speedFxActive);
         movableObjectBillboard.update(camera);
         routeTriggerBillboard.update(camera);
         updateSky(camera.position, dt);

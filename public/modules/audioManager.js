@@ -9,6 +9,8 @@ import {
     ROLLING_MAX_GAIN,
     ROLLING_MOVE_THRESHOLD,
     AUDIO_SMOOTH,
+    ENGINE_PITCH_BOOST,
+    ROLLING_PITCH_BOOST,
 } from "./config.js";
 import { fetchBinaryAsset } from "./binaryAssetLoader.js";
 
@@ -24,6 +26,12 @@ export class AudioManager {
         this.soundBuffers = {}; // name -> decoded AudioBuffer
         this.engineGain = null;
         this.rollingGain = null;
+        // Source nodes (kept separately from the gain nodes above) so
+        // update() can also ramp their playbackRate for the speed
+        // pitch-shift — AudioBufferSourceNode.playbackRate is the only
+        // handle for that, gain nodes don't carry it.
+        this.engineSource = null;
+        this.rollingSource = null;
 
         // Current mode's speed cap, used to normalize speed into a 0-1
         // ratio for engine/rolling gain below. Defaults to Free Roam's
@@ -39,8 +47,12 @@ export class AudioManager {
         window.addEventListener("pointerdown", this._unlockAudio);
 
         this.ready = this._loadAll().then(() => {
-            this.engineGain = this._startLoopingSound("engine");
-            this.rollingGain = this._startLoopingSound("rolling");
+            const engine = this._startLoopingSound("engine");
+            const rolling = this._startLoopingSound("rolling");
+            this.engineGain = engine?.gain || null;
+            this.engineSource = engine?.source || null;
+            this.rollingGain = rolling?.gain || null;
+            this.rollingSource = rolling?.source || null;
         }).catch((err) => console.error("Failed to load audio assets:", err));
     }
 
@@ -71,7 +83,7 @@ export class AudioManager {
         gain.gain.value = 0;
         source.connect(gain).connect(this.masterGain);
         source.start();
-        return gain;
+        return { source, gain };
     }
 
     _playOneShot(name, volume = 1) {
@@ -104,7 +116,12 @@ export class AudioManager {
 
     // Smoothly blends the looping engine/rolling gains each frame based on
     // ball speed and whether the player is actively steering.
-    update(dt, ballBody, keys) {
+    //
+    // `speedFxActive` gates only the two playbackRate (pitch) ramps below —
+    // true while GameModeManager's mode is Speedrun. Gain ramps are
+    // unaffected and keep working the same in every mode; only the pitch
+    // shift is Speedrun-exclusive.
+    update(dt, ballBody, keys, speedFxActive = false) {
         const speed = Math.hypot(ballBody.velocity.x, ballBody.velocity.z);
         const speedRatio = THREE.MathUtils.clamp(speed / this.maxSpeed, 0, 1);
         const isControlling = keys.forward || keys.back || keys.left || keys.right;
@@ -118,6 +135,11 @@ export class AudioManager {
             const engineEase = 1 - Math.exp(-ENGINE_SMOOTH * dt);
             this.engineGain.gain.value += (targetGain - this.engineGain.gain.value) * engineEase;
         }
+        if (this.engineSource) {
+            const targetRate = 1 + (speedFxActive ? speedRatio * ENGINE_PITCH_BOOST : 0);
+            const engineEase = 1 - Math.exp(-ENGINE_SMOOTH * dt);
+            this.engineSource.playbackRate.value += (targetRate - this.engineSource.playbackRate.value) * engineEase;
+        }
 
         // Rolling: plays whenever the ball is actually moving, controlled
         // or not.
@@ -125,6 +147,11 @@ export class AudioManager {
             const targetGain = speed > ROLLING_MOVE_THRESHOLD ? ROLLING_MAX_GAIN * speedRatio : 0;
             const rollingEase = 1 - Math.exp(-AUDIO_SMOOTH * dt);
             this.rollingGain.gain.value += (targetGain - this.rollingGain.gain.value) * rollingEase;
+        }
+        if (this.rollingSource) {
+            const targetRate = 1 + (speedFxActive ? speedRatio * ROLLING_PITCH_BOOST : 0);
+            const rollingEase = 1 - Math.exp(-AUDIO_SMOOTH * dt);
+            this.rollingSource.playbackRate.value += (targetRate - this.rollingSource.playbackRate.value) * rollingEase;
         }
     }
 }

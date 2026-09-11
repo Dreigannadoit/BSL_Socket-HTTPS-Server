@@ -125,6 +125,18 @@ export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
 export const SKID_CAMERA_ROLL = 0.045;        // radians of camera roll at full skid intensity
 export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead of snapping
 
+// ── Speed feel (FOV kick + shake) ──
+// Both driven by the ball's current speed as a fraction of the active
+// mode's max speed (0 at rest, 1 at that mode's cap) — see
+// CameraController.update(). Purely cosmetic, no gameplay effect. Scales
+// naturally per mode since Speedrun's MAX_SPEED_SPEEDRUN is higher than
+// Free Roam's, so the same fractional curve reads as "faster" there
+// without any mode-specific branching.
+export const SPEED_FOV_BOOST_MAX = 10;   // degrees added to baseFov at full speed
+export const SPEED_FOV_SMOOTH = 0.06;    // per-frame ease factor (not dt-scaled), same style as HOTSPOT_CAMERA_BLEND
+export const SPEED_SHAKE_MAX_AMPLITUDE = 0.02; // world units of camera jitter at full speed — was 0.06, toned down
+export const SPEED_SHAKE_FREQUENCY = 22;       // radians/sec fed into the shake's sine waves
+
 // ── Hotspot camera framing ──
 // While a hotspot is active, CameraController eases from the normal follow
 // framing into a tighter, wider-FOV shot looking slightly above the ball,
@@ -240,6 +252,12 @@ export const ENGINE_SMOOTH = 1.8;    // ramp speed from faint -> full
 export const ROLLING_MAX_GAIN = 0.5;
 export const ROLLING_MOVE_THRESHOLD = 0.05; // m/s below which the ball counts as stopped
 export const AUDIO_SMOOTH = 6;              // rolling gain transition speed
+// Playback-rate (pitch) boost at full speed, layered on top of the gain
+// ramps above — same speedRatio, so it builds/releases in lockstep with
+// volume. Rolling pitches up more than engine since it's the sound most
+// tied to how fast the ball is actually skidding across the ground.
+export const ENGINE_PITCH_BOOST = 0.35;  // playbackRate reaches 1.35 at full speed
+export const ROLLING_PITCH_BOOST = 0.5;  // playbackRate reaches 1.5 at full speed
 
 // ── World collision-mesh material ──
 // Matte with just a hint of shine: high roughness keeps highlights soft and

@@ -580,6 +580,12 @@ button.mode_selector_button:hover {
     padding: 0 20px;
 }
 
+.hotspot-content-2 .main_wrapper.about{
+    transform: rotateX(-11deg) rotateY(16deg) translate3d(15px, -18px, 100px) translate(-50%, -50%) ;
+    justify-content: flex-end;
+
+}
+
 .hotspot-content-2 .main_wrapper h1{
     color: #fff; 
 }
@@ -680,6 +686,7 @@ button.mode_selector_button:hover {
     bottom: 0;
     pointer-events: auto;
 }
+
 .hotspot-content-3 .main_wrapper{
     position: fixed;
     top: 35%;
@@ -693,6 +700,10 @@ button.mode_selector_button:hover {
     justify-content: space-between;
     align-items: flex-start;
     padding: 0 20px;
+}
+
+.hotspot-content-3 .main_wrapper.about{
+    justify-content: flex-end;
 }
 
 .hotspot-content-3 .main_wrapper h1{
@@ -868,6 +879,9 @@ button.mode_selector_button:hover {
     padding: 0 20px;
 }
 
+.hotspot-content-5 .main_wrapper.about{
+    justify-content: flex-end;
+}
 .hotspot-content-5 .main_wrapper h1{
     color: #fff; 
 }
@@ -877,6 +891,11 @@ button.mode_selector_button:hover {
     width: 100%;
     overflow: hidden;
     color: #fff; 
+}
+
+.hotspot-content-5 .main_wrapper.about .slider_viewport{
+    height: auto;
+
 }
 
 .hotspot-content-5 .slider_viewport a{
