@@ -629,6 +629,10 @@ button.mode_selector_button:hover {
   padding: 0 20px;
 }
 
+.hotspot-content-4 .main_wrapper.about {
+  justify-content: flex-end;
+}
+
 .hotspot-content-4 .main_wrapper h1 {
   color: #fff;
 }

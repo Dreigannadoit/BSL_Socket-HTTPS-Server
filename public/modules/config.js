@@ -170,6 +170,26 @@ export const HOTSPOT_CAMERA_CONFIGS = {
         fov: 25,
         targetYOffset: 0.80,
     },
+    Hotspot_6: { // Set to hostspot 2 config 
+        offset: { x: 4.5, y: 1.0, z: 1 },
+        fov: 45,
+        targetYOffset: 0.95,
+    },
+    Hotspot_7: { // Set to hostspot 3 config 
+        offset: { x: 4.5, y: 0.0, z: 6.5 },
+        fov: 25,
+        targetYOffset: 0.80,
+    },
+    Hotspot_8: { // Set to hostspot 4 config 
+        offset: { x: 6.5, y: 0.5, z: 6 },
+        fov: 25,
+        targetYOffset: 0.9,
+    },
+    Hotspot_9: { // Set to hostspot 5 config 
+        offset: { x: 1.5, y: 1.0, z: 6.5 },
+        fov: 25,
+        targetYOffset: 0.80,
+    },
 };
 
 // Used for any hotspot (e.g. Hotspot_3/4/5) that doesn't have its own entry
@@ -202,9 +222,9 @@ export const MIN_AIRBORNE_TIME = 0.12;
 export const HOTSPOT_STUCK_DURATION = 1.0; // seconds
 // How close (meters) the ball's center needs to be to a level-authored
 // Hotspot_N marker's position before HotspotSystem treats it as "entered".
-export const HOTSPOT_TRIGGER_RADIUS = 0.5;
+export const HOTSPOT_TRIGGER_RADIUS = 0.6;
 
-export const HOTSPOT_ENTER_RADIUS = 0.5;
+export const HOTSPOT_ENTER_RADIUS = 0.6;
 export const HOTSPOT_EXIT_RADIUS = 0.7; 
 
 

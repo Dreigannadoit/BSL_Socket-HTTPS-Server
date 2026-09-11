@@ -557,6 +557,46 @@ const HOTSPOT_CONTENT = {
             goToSlide(0);
         },
     },
+    Hotspot_6: {
+        className: "hotspot-content-2",
+        render: () => `
+    <div class="main_wrapper about">
+        <h1>Outro.</h1>
+
+        <p>Hello</p>
+    </div>
+    `
+    },
+    Hotspot_7: {
+        className: "hotspot-content-3",
+        render: () => `
+    <div class="main_wrapper about">
+        <h1>Outro.</h1>
+
+        <p>Hello</p>
+    </div>
+    `
+    },
+    Hotspot_8: {
+        className: "hotspot-content-4",
+        render: () => `
+    <div class="main_wrapper about">
+        <h1>Outro.</h1>
+
+        <p>Hello</p>
+    </div>
+    `
+    },
+    Hotspot_9: {
+        className: "hotspot-content-5",
+        render: () => `
+    <div class="main_wrapper about">
+        <h1>Outro.</h1>
+
+        <p>Hello</p>
+    </div>
+    `
+    },
 };
 
 // Detects when the ball enters/exits a level-authored hotspot trigger and
