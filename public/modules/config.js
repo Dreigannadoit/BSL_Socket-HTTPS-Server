@@ -133,7 +133,7 @@ export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead o
 // Free Roam's, so the same fractional curve reads as "faster" there
 // without any mode-specific branching.
 export const SPEED_FOV_BOOST_MAX = 10;   // degrees added to baseFov at full speed
-export const SPEED_FOV_SMOOTH = 0.06;    // per-frame ease factor (not dt-scaled), same style as HOTSPOT_CAMERA_BLEND
+export const SPEED_FOV_SMOOTH = 0.16;    // per-frame ease factor (not dt-scaled), same style as HOTSPOT_CAMERA_BLEND
 export const SPEED_SHAKE_MAX_AMPLITUDE = 0.02; // world units of camera jitter at full speed — was 0.06, toned down
 export const SPEED_SHAKE_FREQUENCY = 22;       // radians/sec fed into the shake's sine waves
 

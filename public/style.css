@@ -1,937 +1,768 @@
-*{
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+/* ==========================================================================
+   Reset & base
+   ========================================================================== */
 
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 html,
 body {
-    height: 100%;
-    overflow: hidden;
-    background: #111;
+  height: 100%;
+  overflow: hidden;
+  background: #111;
 
-    font-family: "Plus Jakarta Sans", sans-serif;
-    font-optical-sizing: auto;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-optical-sizing: auto;
 }
+
 canvas {
-    display: block;
-    z-index: 1;
+  display: block;
+  z-index: 1;
 }
 
+/* ==========================================================================
+   HUD
+   ========================================================================== */
 
 #hud {
-    position: fixed;
-    top: 0px;
-    left: 0px;
+  position: fixed;
+  top: 0px;
+  left: 0px;
 
-    height: 100%;
-    width: 100%;
+  height: 100%;
+  width: 100%;
 
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
 
-    color: #FAFAF2;
+  color: #FAFAF2;
 }
 
+/* NOTE: selector below was `#hug img` in the source — likely a typo for
+   `#hud img`. Left as-is to avoid changing behavior; fix if unintended. */
 #hug img {
-    height: 300px;
+  height: 300px;
 }
 
-/* Error 404 page */
+/* ==========================================================================
+   Error 404 page
+   ========================================================================== */
 
-._404{
-    position: relative;
-    height: 100%;
-    width: 100%;
+._404 {
+  position: relative;
+  height: 100%;
+  width: 100%;
 
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    
-    color: #FAFAF2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  color: #FAFAF2;
 }
 
-._404 .icon{
-
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    cursor: pointer;
+._404 .icon {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  cursor: pointer;
 }
 
 ._404 .icon.clicked {
-    animation: iconClick 0.6s ease;
+  animation: iconClick 0.6s ease;
 }
 
 @keyframes iconClick {
-    0% {
-        transform: scale(1) rotate(0deg);
-    }
-
-    30% {
-        transform: scale(1.2) rotate(-8deg);
-    }
-
-    50% {
-        transform: scale(0.9) rotate(8deg);
-    }
-
-    70% {
-        transform: scale(1.05) rotate(-4deg);
-    }
-
-    100% {
-        transform: scale(1) rotate(0deg);
-    }
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  30% {
+    transform: scale(1.2) rotate(-8deg);
+  }
+  50% {
+    transform: scale(0.9) rotate(8deg);
+  }
+  70% {
+    transform: scale(1.05) rotate(-4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
 }
 
-._404 .icon img{
-    height: 300px;
+._404 .icon img {
+  height: 300px;
 }
 
-._404 .icon p{
-    font-size: 9rem;
-    font-weight: 800;
-    transform: translate(-37px, -39px) rotate(13deg);
+._404 .icon p {
+  font-size: 9rem;
+  font-weight: 800;
+  transform: translate(-37px, -39px) rotate(13deg);
 }
 
-._404 .icon.clicked p{
-    animation: iconPClick 0.6s ease;
-
+._404 .icon.clicked p {
+  animation: iconPClick 0.6s ease;
 }
 
 @keyframes iconPClick {
-    0% {
+  0% {
     transform: translate(-37px, -39px) rotate(13deg);
-    }
-
-    50% {
+  }
+  50% {
     transform: translate(-37px, -39px) rotate(13deg);
-    }
-
-    100% {
+  }
+  100% {
     transform: translate(-37px, -39px) rotate(13deg);
-    }
+  }
 }
 
 ._404 button {
-    padding: 14px 30px;
-    border: none;
-    border-radius: 12px;
+  padding: 14px 30px;
+  border: none;
+  border-radius: 12px;
 
-    background: #252736;
-    color: #fff;
+  background: #252736;
+  color: #fff;
 
-    font-family: "Plus Jakarta Sans", sans-serif;
-    font-size: 16px;
-    font-weight: 700;
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
 
-    cursor: pointer;
+  cursor: pointer;
 
-    /* 3D depth */
-    box-shadow: 0 6px 0 #000, 0 10px 15px rgba(0, 0, 0, 0.2);
+  /* 3D depth */
+  box-shadow: 0 6px 0 #000, 0 10px 15px rgba(0, 0, 0, 0.2);
 
-    transition: all 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 /* Hover: button moves upward */
 ._404 button:hover {
-    transform: translateY(-3px);
+  transform: translateY(-3px);
 
-    box-shadow:
-        0 9px 0 #000,
-        0 14px 20px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 9px 0 #000,
+    0 14px 20px rgba(0, 0, 0, 0.25);
 }
 
 /* Click: button gets pressed down */
 ._404 button:active {
-    transform: translateY(5px);
+  transform: translateY(5px);
 
-    box-shadow:
-        0 1px 0 #000,
-        0 3px 6px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 1px 0 #000,
+    0 3px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* Fullscreen fade-to-black transition, driven every frame from game.js
-     (opacity is set directly rather than via CSS transitions so it can be
-     synced to the actual fall/respawn timing). */
+/* ==========================================================================
+   Fullscreen fade-to-black transition, driven every frame from game.js
+   (opacity is set directly rather than via CSS transitions so it can be
+   synced to the actual fall/respawn timing).
+   ========================================================================== */
+
 #fade-overlay {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    opacity: 0;
-    z-index: 20;
-    pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  z-index: 20;
+  pointer-events: none;
 }
 
-/* Hotspot popup — HotspotSystem swaps both the innerHTML and this
-     element's class per-hotspot (see hotspotSystem.js), so the fade
-     in/out below is the only thing shared across every hotspot; the
-     actual layout/look comes from the .hotspot-content-N rules further
-     down. pointer-events stays off since hotspots are exited by driving
-     away, not by clicking anything. */
+/* ==========================================================================
+   Hotspot popup — HotspotSystem swaps both the innerHTML and this
+   element's class per-hotspot (see hotspotSystem.js), so the fade
+   in/out below is the only thing shared across every hotspot; the
+   actual layout/look comes from the .hotspot-content-N rules further
+   down. pointer-events stays off since hotspots are exited by driving
+   away, not by clicking anything.
+   ========================================================================== */
+
 #hotspot-popup {
-    z-index: 20;
-    opacity: 0;
-    transition: opacity 500ms 0ms ease , transform 500ms 0ms ease ;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 500ms 0ms ease, transform 500ms 0ms ease;
 }
 
 #hotspot-popup.visible {
-    opacity: 1;
-    pointer-events: auto;
-    transition: opacity 800ms 500ms ease , transform 800ms 500ms ease ;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 800ms 500ms ease, transform 800ms 500ms ease;
 }
 
-/* hotspot 1 */
-
-#hotspot-popup.hotspot-content-1 {
-    pointer-events: auto;
-}
-
-.hotspot-content-1 {
-    height: 100vh;
-    width: 100vw;
-    position: fixed;
-    top: 0;
-    left: 0;
-}
-
-.hotspot-content-1>img {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 100%;
-    object-fit: contain;
-    z-index: 1;
-}
-
-.hotspot-content-1>.container {
-    position: relative;
-    height: 100%;
-    width: 100%;
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: row;
-
-    perspective: 500px;
-    transform-style: preserve-3d;
-    z-index: 12;
-}
-
-.hotspot-content-1>.container .start_card {
-    position: relative;
-    width: 350px;
-    padding: 20px 20px;
-    border-radius: 5px;
-    background-color: #fff;
-    z-index: 999;
-    transform: perspective(23500px) rotateX(-19deg) rotateY(41deg) translate3d(10px, -90px, 290px) scale(0.6);
-}
-
-.hotspot-content-1>.container .start_card p {
-    font-size: 10px;
-}
-
-.hotspot-content-1>.container .start_menu_container {
-    position: relative;
-    width: 600px;
-    transform: rotateX(-20deg) rotateY(-34deg) translate3d(30px, -50px, 110px) scale(0.64);
-    color: #fff;
-    z-index: 999;
-}
-
-.hotspot-content-1>.container .start_menu_container .menu_header {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.hotspot-content-1>.container .start_menu_container .menu_header p {
-    font-size: 32px;
-}
-
-button.mode_selector_button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-
-    padding: 0.6rem 0.9rem;
-    border: none;
-    background: #fff;
-    color: #111;
-    cursor: pointer;
-
-    overflow: hidden;
-    border-radius: 999px;
-
-    transition: background 0.3s ease;
-}
-
-button.mode_selector_button svg {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    transition: transform 0.3s ease;
-}
-
-button.mode_selector_button span {
-    white-space: nowrap;
-    max-width: 0;
-    opacity: 0;
-
-    overflow: hidden;
-    transition:
-        max-width 0.4s ease,
-        opacity 0.3s ease;
-}
-
-button.mode_selector_button:hover span {
-    max-width: 150px;
-    /* enough to fit text */
-    opacity: 1;
-}
-
-/* optional polish */
-button.mode_selector_button:hover svg {
-    transform: translateX(4px);
-}
-
-button.mode_selector_button:hover {
-    background: #222;
-}
-
-/* Shared slider mechanics — used both by the .about start-menu carousel
+/* ==========================================================================
+   Shared slider mechanics — used both by the .about start-menu carousel
    and by the Hotspot_1 popup content (see .hotspot-content-1 overrides
    below, which just tweak sizing/pointer-events/typography for the
-   popup context). */
+   popup context).
+   ========================================================================== */
+
 .slider_buttons {
-    display: flex;
-    gap: 8px;
+  display: flex;
+  gap: 8px;
 }
 
 .start_menu_slider {
-    width: 100%;
-    overflow: hidden;
+  width: 100%;
+  overflow: hidden;
 }
 
 .start_menu_track {
-    display: flex;
-    width: 100%;
-    transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
-    will-change: transform;
+  display: flex;
+  width: 100%;
+  transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: transform;
 }
 
 .start_menu {
-    flex: 0 0 100%;
-    width: 100%;
-    max-width: 100%;
-}
-
-.hotspot-content-1>.container .start_menu img {
-    width: 100%;
-    object-fit: cover;
-}
-
-.hotspot-content-1>.container .start_menu h1 {
-    font-size: 42px;
-}
-
-.hotspot-content-1>.container .start_menu p {
-    font-size: 22px;
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
 }
 
 .start_menu button {
-    width: 100%;
-    font-weight: 800;
-    padding: 15px;
-    border: none;
-    border-radius: 5px;
-    font-size: 22px;
-    transition: all 500ms;
-    cursor: pointer;
+  width: 100%;
+  font-weight: 800;
+  padding: 15px;
+  border: none;
+  border-radius: 5px;
+  font-size: 22px;
+  transition: all 500ms;
+  cursor: pointer;
 }
 
 .start_menu button:hover {
-    background-color: rgb(0, 0, 0);
-    color: aqua;
-    font-size: 28px;
+  background-color: rgb(0, 0, 0);
+  color: aqua;
+  font-size: 28px;
 }
 
-
-
-.hotspot-content-1 {
-    height: 100vh;
-    width: 100vw;
-    position: fixed;
-    top: 0;
-    left: 0;
-}
-
-.hotspot-content-1>img {
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 100%;
-    object-fit: contain;
-    z-index: 1;
-}
-
-.hotspot-content-1>.container {
-    position: relative;
-    height: 100%;
-    width: 100%;
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: row;
-
-    perspective: 500px;
-    transform-style: preserve-3d;
-    z-index: 12;
-}
-
-.hotspot-content-1>.container .start_card {
-    position: relative;
-    width: 350px;
-    padding: 20px 20px;
-    border-radius: 5px;
-    background-color: #fff;
-    z-index: 999;
-    transform: perspective(23500px) rotateX(-19deg) rotateY(41deg) translate3d(10px, -90px, 290px) scale(0.6);
-}
-
-.hotspot-content-1>.container .start_card p {
-    font-size: 10px;
-}
-
-.hotspot-content-1>.container .start_menu_container {
-    position: relative;
-    width: 600px;
-    transform: rotateX(-20deg) rotateY(-34deg) translate3d(30px, -50px, 110px) scale(0.64);
-    color: #fff;
-    z-index: 999;
-}
-
-.hotspot-content-1>.container .start_menu_container .menu_header {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.hotspot-content-1>.container .start_menu_container .menu_header p {
-    font-size: 32px;
-}
-
+/* Shared "pill" button used to switch modes (also appears inside
+   Hotspot 1's start menu). */
 button.mode_selector_button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 
-    padding: 0.6rem 0.9rem;
-    border: none;
-    background: #fff;
-    color: #111;
-    cursor: pointer;
+  padding: 0.6rem 0.9rem;
+  border: none;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
 
-    overflow: hidden;
-    border-radius: 999px;
+  overflow: hidden;
+  border-radius: 999px;
 
-    transition: background 0.3s ease;
+  transition: background 0.3s ease;
 }
 
 button.mode_selector_button svg {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    transition: transform 0.3s ease;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
 }
 
 button.mode_selector_button span {
-    white-space: nowrap;
-    max-width: 0;
-    opacity: 0;
+  white-space: nowrap;
+  max-width: 0;
+  opacity: 0;
 
-    overflow: hidden;
-    transition:
-        max-width 0.4s ease,
-        opacity 0.3s ease;
+  overflow: hidden;
+  transition:
+    max-width 0.4s ease,
+    opacity 0.3s ease;
 }
 
 button.mode_selector_button:hover span {
-    max-width: 150px;
-    /* enough to fit text */
-    opacity: 1;
+  max-width: 150px; /* enough to fit text */
+  opacity: 1;
 }
 
-/* optional polish */
 button.mode_selector_button:hover svg {
-    transform: translateX(4px);
+  transform: translateX(4px);
 }
 
 button.mode_selector_button:hover {
-    background: #222;
-    color: #fff;
+  background: #222;
+  color: #fff;
 }
 
-/* Shared slider mechanics — used both by the .about start-menu carousel
-   and by the Hotspot_1 popup content (see .hotspot-content-1 overrides
-   below, which just tweak sizing/pointer-events/typography for the
-   popup context). */
-.slider_buttons {
-    display: flex;
-    gap: 8px;
-}
+/* ==========================================================================
+   Hotspot 1
+   ========================================================================== */
 
-.start_menu_slider {
-    width: 100%;
-    overflow: hidden;
+.hotspot-content-1 {
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
 }
 
-.start_menu_track {
-    display: flex;
-    width: 100%;
-    transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
-    will-change: transform;
+.hotspot-content-1 > img {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+  z-index: 1;
 }
 
-.start_menu {
-    flex: 0 0 100%;
-    width: 100%;
-    max-width: 100%;
-}
+.hotspot-content-1 > .container {
+  position: relative;
+  height: 100%;
+  width: 100%;
 
-.hotspot-content-1>.container .start_menu img {
-    width: 100%;
-    object-fit: cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: row;
+
+  perspective: 500px;
+  transform-style: preserve-3d;
+  z-index: 12;
 }
 
-.hotspot-content-1>.container .start_menu h1 {
-    font-size: 42px;
+.hotspot-content-1 > .container .start_card {
+  position: relative;
+  width: 350px;
+  padding: 20px 20px;
+  border-radius: 5px;
+  background-color: #fff;
+  z-index: 999;
+  transform: perspective(23500px) rotateX(-19deg) rotateY(41deg) translate3d(10px, -90px, 290px) scale(0.6);
 }
 
-.hotspot-content-1>.container .start_menu p {
-    font-size: 22px;
+.hotspot-content-1 > .container .start_card p {
+  font-size: 10px;
 }
 
-.start_menu button {
-    width: 100%;
-    font-weight: 800;
-    padding: 15px;
-    border: none;
-    border-radius: 5px;
-    font-size: 22px;
-    transition: all 500ms;
-    cursor: pointer;
+.hotspot-content-1 > .container .start_menu_container {
+  position: relative;
+  width: 600px;
+  transform: rotateX(-20deg) rotateY(-34deg) translate3d(30px, -50px, 110px) scale(0.64);
+  color: #fff;
+  z-index: 999;
 }
 
-.start_menu button:hover {
-    background-color: rgb(0, 0, 0);
-    color: aqua;
-    font-size: 28px;
+.hotspot-content-1 > .container .start_menu_container .menu_header {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* Hotspot 2 */
+.hotspot-content-1 > .container .start_menu_container .menu_header p {
+  font-size: 32px;
+}
 
-.hotspot-content-2{
-    position: fixed;
-    height: 100vh;
-    width: 100%;
-    z-index: 9999;
-    perspective: 1500px;
-    transform-style: preserve-3d;
+.hotspot-content-1 > .container .start_menu img {
+  width: 100%;
+  object-fit: cover;
 }
 
-.hotspot-content-2#hotspot-popup{
-    transform: translate(50%, 50%) scale(2.5);
+.hotspot-content-1 > .container .start_menu h1 {
+  font-size: 42px;
 }
 
-.hotspot-content-2#hotspot-popup.visible{
-    transform: translate(0%, 0) scale(1);
-    left: 0;
-    bottom: 0;
-    pointer-events: auto;
+.hotspot-content-1 > .container .start_menu p {
+  font-size: 22px;
 }
 
-.hotspot-content-2 .main_wrapper{
-    position: fixed;
-    top: 35%;
-    left: 50%;
-    height: 320px;
-    width: 500px;
-    transform: rotateX(-11deg) rotateY(16deg) translate3d(75px, -18px, 100px) translate(-50%, -50%) ;
+/* ==========================================================================
+   Hotspot 2
+   ========================================================================== */
 
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 0 20px;
+.hotspot-content-2 {
+  position: fixed;
+  height: 100vh;
+  width: 100%;
+  z-index: 9999;
+  perspective: 1500px;
+  transform-style: preserve-3d;
 }
 
-.hotspot-content-2 .main_wrapper.about{
-    transform: rotateX(-11deg) rotateY(16deg) translate3d(15px, -18px, 100px) translate(-50%, -50%) ;
-    justify-content: flex-end;
-
+.hotspot-content-2#hotspot-popup {
+  transform: translate(50%, 50%) scale(2.5);
 }
 
-.hotspot-content-2 .main_wrapper h1{
-    color: #fff; 
+.hotspot-content-2#hotspot-popup.visible {
+  transform: translate(0%, 0) scale(1);
+  left: 0;
+  bottom: 0;
+  pointer-events: auto;
 }
+
+.hotspot-content-2 .main_wrapper {
+  position: fixed;
+  top: 35%;
+  left: 50%;
+  height: 320px;
+  width: 500px;
+  transform: rotateX(-11deg) rotateY(16deg) translate3d(75px, -18px, 100px) translate(-50%, -50%);
 
-.hotspot-content-2 .slider_viewport{
-    width: 100%;
-    overflow: hidden;
-    color: #fff; 
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 20px;
 }
 
-.hotspot-content-2 .slider{
-    display: flex;
-    width: 100%;
-    transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
-    will-change: transform;
-    
+.hotspot-content-2 .main_wrapper.about {
+  transform: rotateX(-11deg) rotateY(16deg) translate3d(15px, -18px, 100px) translate(-50%, -50%);
+  justify-content: flex-end;
 }
 
-.hotspot-content-2 .slider .slide{
-    flex: 0 0 100%;
-    width: 100%;
-    max-width: 100%;
+.hotspot-content-2 .main_wrapper h1 {
+  color: #fff;
 }
 
-.hotspot-content-2 .slider img{
-    width: 100%;
-    border-radius: 15px;
+.hotspot-content-2 .slider_viewport {
+  width: 100%;
+  overflow: hidden;
+  color: #fff;
 }
 
-.hotspot-content-2 .slider .slide button{
-    border-radius: 100%;
-    border: none;
-    background-color: #fff;
-    padding: 11px 10px 10px 11px;
-    cursor: pointer;
+.hotspot-content-2 .slider {
+  display: flex;
+  width: 100%;
+  transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: transform;
 }
 
-.hotspot-content-2 .slider p{
-    font-size: 22px;
+.hotspot-content-2 .slider .slide {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
 }
 
-.hotspot-content-2 .side_wrapper{
-    position: relative;
-    height: 210px;
-    width: 150px;
-    
-    transform:rotateX(-11deg) rotateY(-60deg) translate3d(1410px, 185px, -103px) translate(-50%, -50%) scale(0.7);
+.hotspot-content-2 .slider img {
+  width: 100%;
+  border-radius: 15px;
+}
 
+.hotspot-content-2 .slider .slide button {
+  border-radius: 100%;
+  border: none;
+  background-color: #fff;
+  padding: 11px 10px 10px 11px;
+  cursor: pointer;
+}
 
+.hotspot-content-2 .slider p {
+  font-size: 22px;
 }
 
-.hotspot-content-2 .side{
-    height: 100%;
-    width: 100%;
-    color: #ffffff;
-    text-align: center;
-    font-size: 15px;
+.hotspot-content-2 .side_wrapper {
+  position: relative;
+  height: 210px;
+  width: 150px;
 
-    display: flex;
-    flex-direction: column;
-    align-items:center;
-    line-height: 30px;
+  transform: rotateX(-11deg) rotateY(-60deg) translate3d(1410px, 185px, -103px) translate(-50%, -50%) scale(0.7);
 }
 
+.hotspot-content-2 .side {
+  height: 100%;
+  width: 100%;
+  color: #ffffff;
+  text-align: center;
+  font-size: 15px;
 
-.hotspot-content-2 .side h2{
-    font-size: 42px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 30px;
 }
 
-.hotspot-content-2 .side h3{
-    font-size: 32px;
+.hotspot-content-2 .side h2 {
+  font-size: 42px;
 }
 
-.hotspot-content-2 .side h1{
-    font-size: 82px;
-    line-height: 60px;
+.hotspot-content-2 .side h3 {
+  font-size: 32px;
 }
 
+.hotspot-content-2 .side h1 {
+  font-size: 82px;
+  line-height: 60px;
+}
 
-/* Hotspot 3 */
+/* ==========================================================================
+   Hotspot 3
+   ========================================================================== */
 
-.hotspot-content-3{
-    position: fixed;
-    height: 100vh;
-    width: 100%;
-    z-index: 9999;
-    perspective: 6500px;
-    transform-style: preserve-3d;
+.hotspot-content-3 {
+  position: fixed;
+  height: 100vh;
+  width: 100%;
+  z-index: 9999;
+  perspective: 6500px;
+  transform-style: preserve-3d;
 }
 
-.hotspot-content-3#hotspot-popup{
-    transform: translate(50%, 50%) scale(2.5);
+.hotspot-content-3#hotspot-popup {
+  transform: translate(50%, 50%) scale(2.5);
 }
 
-.hotspot-content-3#hotspot-popup.visible{
-    transform: translate(0%, 0) scale(1);
-    left: 0;
-    bottom: 0;
-    pointer-events: auto;
+.hotspot-content-3#hotspot-popup.visible {
+  transform: translate(0%, 0) scale(1);
+  left: 0;
+  bottom: 0;
+  pointer-events: auto;
 }
 
-.hotspot-content-3 .main_wrapper{
-    position: fixed;
-    top: 35%;
-    left: 50%;
-    height: 360px;
-    width: 500px;
-    transform: rotateX(6deg) rotateY(-39deg) rotateZ(4deg) translate3d(600px, 60px, 800px) translate(-50%, -50%) scale(1.1);
+.hotspot-content-3 .main_wrapper {
+  position: fixed;
+  top: 35%;
+  left: 50%;
+  height: 360px;
+  width: 500px;
+  transform: rotateX(6deg) rotateY(-39deg) rotateZ(4deg) translate3d(600px, 60px, 800px) translate(-50%, -50%) scale(1.1);
 
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 20px;
 }
 
-.hotspot-content-3 .main_wrapper.about{
-    justify-content: flex-end;
+.hotspot-content-3 .main_wrapper.about {
+  justify-content: flex-end;
 }
 
-.hotspot-content-3 .main_wrapper h1{
-    color: #fff; 
+.hotspot-content-3 .main_wrapper h1 {
+  color: #fff;
 }
 
-.hotspot-content-3 .slider_viewport{
-    width: 100%;
-    overflow: hidden;
-    color: #fff; 
+.hotspot-content-3 .slider_viewport {
+  width: 100%;
+  overflow: hidden;
+  color: #fff;
 }
-
-.hotspot-content-3 .slider_viewport a{
-    color: #fff; 
 
+.hotspot-content-3 .slider_viewport a {
+  color: #fff;
 }
 
-.hotspot-content-3 .slider{
-    display: flex;
-    width: 100%;
-    transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
-    will-change: transform;
-    
+.hotspot-content-3 .slider {
+  display: flex;
+  width: 100%;
+  transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: transform;
 }
 
-.hotspot-content-3 .slider .slide{
-    flex: 0 0 100%;
-    width: 100%;
-    max-width: 100%;
+.hotspot-content-3 .slider .slide {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
 }
 
-.hotspot-content-3 .slider img{
-    width: 100%;
-    border-radius: 15px;
+.hotspot-content-3 .slider img {
+  width: 100%;
+  border-radius: 15px;
 }
 
-.hotspot-content-3 .slider .slide button{
-    border-radius: 100%;
-    border: none;
-    background-color: #fff;
-    padding: 11px 10px 10px 11px;
-    cursor: pointer;
+.hotspot-content-3 .slider .slide button {
+  border-radius: 100%;
+  border: none;
+  background-color: #fff;
+  padding: 11px 10px 10px 11px;
+  cursor: pointer;
 }
 
-.hotspot-content-3 .slider p{
-    font-size: 18px;
+.hotspot-content-3 .slider p {
+  font-size: 18px;
 }
 
-.hotspot-content-3 .side_wrapper{
-    position: relative;
-    height: 210px;
-    width: 150px;
-    
-    transform: rotateX(6deg) rotateY(53deg) rotateZ(-6deg) translate3d(170px, 185px, -103px) translate(-50%, -50%) ;
+.hotspot-content-3 .side_wrapper {
+  position: relative;
+  height: 210px;
+  width: 150px;
 
+  transform: rotateX(6deg) rotateY(53deg) rotateZ(-6deg) translate3d(170px, 185px, -103px) translate(-50%, -50%);
 }
 
-/* Hotspot 4 */
+/* ==========================================================================
+   Hotspot 4
+   ========================================================================== */
 
-.hotspot-content-4{
-    position: fixed;
-    height: 100vh;
-    width: 100%;
-    z-index: 9999;
-    perspective: 1500px;
-    transform-style: preserve-3d;
+.hotspot-content-4 {
+  position: fixed;
+  height: 100vh;
+  width: 100%;
+  z-index: 9999;
+  perspective: 1500px;
+  transform-style: preserve-3d;
 }
 
-.hotspot-content-4#hotspot-popup{
-    transform: translate(50%, 50%) scale(2.5);
+.hotspot-content-4#hotspot-popup {
+  transform: translate(50%, 50%) scale(2.5);
 }
 
-.hotspot-content-4#hotspot-popup.visible{
-    transform: translate(0%, 0) scale(1);
-    left: 0;
-    bottom: 0;
-    pointer-events: auto;
+.hotspot-content-4#hotspot-popup.visible {
+  transform: translate(0%, 0) scale(1);
+  left: 0;
+  bottom: 0;
+  pointer-events: auto;
 }
-.hotspot-content-4 .main_wrapper{
-    position: fixed;
-    top: 35%;
-    left: 50%;
-    height: 360px;
-    width: 500px;
-    transform: rotateX(6deg) rotateY(28deg) rotateZ(-5deg) translate3d(0px, 0px, 50px) translate(-50%, -50%) scale(1.1);
 
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 0 20px;
-}
+.hotspot-content-4 .main_wrapper {
+  position: fixed;
+  top: 35%;
+  left: 50%;
+  height: 360px;
+  width: 500px;
+  transform: rotateX(6deg) rotateY(28deg) rotateZ(-5deg) translate3d(0px, 0px, 50px) translate(-50%, -50%) scale(1.1);
 
-.hotspot-content-4 .main_wrapper h1{
-    color: #fff; 
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 20px;
 }
 
-.hotspot-content-4 .slider_viewport{
-    width: 100%;
-    overflow: hidden;
-    color: #fff; 
+.hotspot-content-4 .main_wrapper h1 {
+  color: #fff;
 }
 
-.hotspot-content-4 .slider_viewport a{
-    color: #fff; 
+.hotspot-content-4 .slider_viewport {
+  width: 100%;
+  overflow: hidden;
+  color: #fff;
+}
 
+.hotspot-content-4 .slider_viewport a {
+  color: #fff;
 }
 
-.hotspot-content-4 .slider{
-    display: flex;
-    width: 100%;
-    transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
-    will-change: transform;
-    
+.hotspot-content-4 .slider {
+  display: flex;
+  width: 100%;
+  transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: transform;
 }
 
-.hotspot-content-4 .slider .slide{
-    flex: 0 0 100%;
-    width: 100%;
-    max-width: 100%;
+.hotspot-content-4 .slider .slide {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
 }
 
-.hotspot-content-4 .slider img{
-    width: 100%;
-    border-radius: 15px;
+.hotspot-content-4 .slider img {
+  width: 100%;
+  border-radius: 15px;
 }
 
-.hotspot-content-4 .slider .slide button{
-    border-radius: 100%;
-    border: none;
-    background-color: #fff;
-    padding: 11px 10px 10px 11px;
-    cursor: pointer;
+.hotspot-content-4 .slider .slide button {
+  border-radius: 100%;
+  border: none;
+  background-color: #fff;
+  padding: 11px 10px 10px 11px;
+  cursor: pointer;
 }
 
-.hotspot-content-4 .slider p{
-    font-size: 18px;
+.hotspot-content-4 .slider p {
+  font-size: 18px;
 }
 
-/* Hotspot 5 */
+/* ==========================================================================
+   Hotspot 5
+   ========================================================================== */
 
-.hotspot-content-5{
-    position: fixed;
-    height: 100vh;
-    width: 100%;
-    z-index: 9999;
-    perspective: 1500px;
-    transform-style: preserve-3d;
+.hotspot-content-5 {
+  position: fixed;
+  height: 100vh;
+  width: 100%;
+  z-index: 9999;
+  perspective: 1500px;
+  transform-style: preserve-3d;
 }
 
-.hotspot-content-5#hotspot-popup{
-    transform: translate(50%, 50%) scale(2.5);
+.hotspot-content-5#hotspot-popup {
+  transform: translate(50%, 50%) scale(2.5);
 }
 
-.hotspot-content-5#hotspot-popup.visible{
-    transform: translate(0%, 0) scale(1);
-    left: 0;
-    bottom: 0;
-    pointer-events: auto;
+.hotspot-content-5#hotspot-popup.visible {
+  transform: translate(0%, 0) scale(1);
+  left: 0;
+  bottom: 0;
+  pointer-events: auto;
 }
-.hotspot-content-5 .main_wrapper{
-    position: fixed;
-    top: 35%;
-    left: 50%;
-    height: 360px;
-    width: 500px;
-    transform: rotateX(-1deg) rotateY(-14deg) rotateZ(2deg) translate3d(70px, 0px, 200px) translate(-50%, -50%);
 
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 0 20px;
-}
+.hotspot-content-5 .main_wrapper {
+  position: fixed;
+  top: 35%;
+  left: 50%;
+  height: 360px;
+  width: 500px;
+  transform: rotateX(-1deg) rotateY(-14deg) rotateZ(2deg) translate3d(70px, 0px, 200px) translate(-50%, -50%);
 
-.hotspot-content-5 .main_wrapper.about{
-    justify-content: flex-end;
-}
-.hotspot-content-5 .main_wrapper h1{
-    color: #fff; 
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 20px;
 }
 
-.hotspot-content-5 .slider_viewport{
-    height: 250px;
-    width: 100%;
-    overflow: hidden;
-    color: #fff; 
+.hotspot-content-5 .main_wrapper.about {
+  justify-content: flex-end;
 }
 
-.hotspot-content-5 .main_wrapper.about .slider_viewport{
-    height: auto;
+.hotspot-content-5 .main_wrapper h1 {
+  color: #fff;
+}
 
+.hotspot-content-5 .slider_viewport {
+  height: 250px;
+  width: 100%;
+  overflow: hidden;
+  color: #fff;
 }
 
-.hotspot-content-5 .slider_viewport a{
-    color: #fff; 
+.hotspot-content-5 .main_wrapper.about .slider_viewport {
+  height: auto;
+}
 
+.hotspot-content-5 .slider_viewport a {
+  color: #fff;
 }
 
-.hotspot-content-5 .slider{
-    display: flex;
-    height: 100%;
-    width: 100%;
-    transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
-    will-change: transform;
-    
+.hotspot-content-5 .slider {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+  will-change: transform;
 }
 
-.hotspot-content-5 .slider .slide{
-    flex: 0 0 100%;
-    width: 100%;
-    max-width: 100%;
+.hotspot-content-5 .slider .slide {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
 }
 
-.hotspot-content-5 .slider img{
-    height: 100%;
-    width: 100%;
-    border-radius: 15px;
+.hotspot-content-5 .slider img {
+  height: 100%;
+  width: 100%;
+  border-radius: 15px;
 }
 
-.hotspot-content-5 .slider .slide button{
-    border-radius: 100%;
-    border: none;
-    background-color: #fff;
-    padding: 11px 10px 10px 11px;
-    cursor: pointer;
+.hotspot-content-5 .slider .slide button {
+  border-radius: 100%;
+  border: none;
+  background-color: #fff;
+  padding: 11px 10px 10px 11px;
+  cursor: pointer;
 }
 
-.hotspot-content-5 .slider p{
-    font-size: 18px;
+.hotspot-content-5 .slider p {
+  font-size: 18px;
 }
