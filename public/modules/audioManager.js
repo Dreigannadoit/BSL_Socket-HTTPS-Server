@@ -107,6 +107,14 @@ export class AudioManager {
         this._playOneShot("hotspot", volume);
     }
 
+    // Played by PlayerEntrance/PlayerExit at the instant their shared
+    // spawn-beam visual reaches the floor/target — i.e. exactly when the
+    // ball pops in (entrance) or is swallowed (exit). Same one-shot as
+    // playHotspotSound(), just a distinct buffer.
+    playWarpSound(volume = 1) {
+        this._playOneShot("warp", volume);
+    }
+
     // Called by GameModeManager.selectMode() alongside
     // PlayerController.setMaxSpeed() so engine/rolling volume ramps stay
     // matched to whichever mode's top speed is currently active.

@@ -2,16 +2,16 @@ import * as THREE from "three";
 
 // Camera-facing 3D billboard for RouteTriggerSystem's "Press Enter for
 // <label>" prompt — same canvas-texture-plane billboarding technique as
-// MovableObjectBillboard (three.js's standard text-label trick), except the
-// text is redrawn per-trigger rather than being fixed, since each route
-// trigger (About page / Github / LinkedIn / ...) has its own label.
+// MovableObjectBillboard, except the text is redrawn per-trigger.
 //
-// Purely informational, same as MovableObjectBillboard: confirming is a
-// keyboard action (Enter), not a click, so there's nothing on the panel to
-// raycast against. Rolling off the trigger dismisses it (handled by
-// RouteTriggerSystem.update), so there's no separate cancel affordance to
-// draw either. The player's own movement is completely untouched by this —
-// showing/hiding the panel never freezes input.
+// The panel's WORLD-SPACE size is intentionally fixed and identical for
+// every trigger (see PANEL_WIDTH/PANEL_HEIGHT below) — this level's
+// triggers sit only ~1.5-2m apart (see RouteTriggerSystem's class
+// comment), so a panel that grows wider for long labels would visually
+// bleed into a neighboring trigger's space depending on which label was
+// last drawn. Long labels are handled by shrinking the font to fit the
+// fixed panel instead, falling back to two lines if even the minimum
+// font size can't fit on one.
 export class RouteTriggerBillboard {
     constructor(scene, camera, domElement) {
         this.camera = camera;
@@ -20,20 +20,16 @@ export class RouteTriggerBillboard {
         this.callbacks = null;
         this.currentLabel = null;
 
-        // Renders after the normal scene and ignores depth so the panel
-        // never fights z-fighting against the trigger/floor it's floating
-        // just above, while still allowing bigger foreground geometry to
-        // occlude it — same convention as MovableObjectBillboard.
         this.group = new THREE.Group();
         this.group.visible = false;
         this.group.renderOrder = 999;
 
-        // One canvas/texture reused across every trigger — _drawPanel()
-        // repaints it whenever the label actually changes, instead of
-        // allocating a fresh canvas per trigger.
+        // Canvas resolution is fixed and shared by every trigger. Sized a
+        // bit taller than a single line so a two-line fallback (see
+        // _drawPanel) has room without needing a resize.
         this.canvas = document.createElement("canvas");
-        this.canvas.width = 512;
-        this.canvas.height = 128;
+        this.canvas.width = 900;
+        this.canvas.height = 220;
         this.texture = new THREE.CanvasTexture(this.canvas);
         if ("colorSpace" in this.texture) this.texture.colorSpace = THREE.SRGBColorSpace;
 
@@ -43,42 +39,83 @@ export class RouteTriggerBillboard {
             depthWrite: false,
             depthTest: true,
         });
-        const geometry = new THREE.PlaneGeometry(1.8, 0.4);
+
+        // Fixed world size for every trigger — never changes per label.
+        this.PANEL_WIDTH = 2.2;
+        this.PANEL_HEIGHT = 0.54; // matches the canvas's 900/220 aspect ratio
+        const geometry = new THREE.PlaneGeometry(this.PANEL_WIDTH, this.PANEL_HEIGHT);
         this.panel = new THREE.Mesh(geometry, material);
         this.group.add(this.panel);
 
         scene.add(this.group);
 
-        // Window-level (not domElement-level) so it fires regardless of
-        // what currently has DOM focus, same as MovableObjectBillboard —
-        // except we explicitly bail if an actual input field (e.g.
-        // DevTools' panel) is focused, so committing a value there with
-        // Enter can't also fire a navigation behind it.
+        this.MAX_FONT_SIZE = 38;
+        this.MIN_FONT_SIZE = 20; // below this, wrap to two lines instead of shrinking further
+        this.PADDING_X = 40;     // horizontal margin either side, in canvas px
+
         this._onKeyDown = this._onKeyDown.bind(this);
         window.addEventListener("keydown", this._onKeyDown);
+    }
+
+    _fontString(size) {
+        return `600 ${size}px 'Plus Jakarta Sans', sans-serif`;
+    }
+
+    // Finds the largest font size (down to MIN_FONT_SIZE) at which `text`
+    // fits within the canvas's usable width on a single line.
+    _fitSingleLine(ctx, text, maxWidth) {
+        for (let size = this.MAX_FONT_SIZE; size >= this.MIN_FONT_SIZE; size -= 2) {
+            ctx.font = this._fontString(size);
+            if (ctx.measureText(text).width <= maxWidth) return size;
+        }
+        return this.MIN_FONT_SIZE;
     }
 
     _drawPanel(label) {
         const ctx = this.canvas.getContext("2d");
         const { width, height } = this.canvas;
+        const maxTextWidth = width - this.PADDING_X * 2;
+        const fullText = `Press Enter for ${label}`;
+
         ctx.clearRect(0, 0, width, height);
 
         this._roundRect(ctx, 6, 6, width - 12, height - 12, 24);
         ctx.fillStyle = "rgba(18, 22, 31, 0.92)";
         ctx.fill();
         ctx.lineWidth = 4;
-        // Faint yellow ring — echoes the trigger marker's own glow color
-        // (ROUTE_TRIGGER_GLOW_COLOR) so the panel visually belongs to it.
         ctx.strokeStyle = "rgba(255, 230, 0, 0.4)";
         ctx.stroke();
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = "600 38px 'Plus Jakarta Sans', sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(`Press Enter for ${label}`, width / 2, height / 2 + 2);
+
+        // Try the whole thing on one line first, shrinking font as needed.
+        const oneLineFit = this._fitSingleLine(ctx, fullText, maxTextWidth);
+        ctx.font = this._fontString(oneLineFit);
+        if (ctx.measureText(fullText).width <= maxTextWidth) {
+            ctx.fillText(fullText, width / 2, height / 2 + 2);
+        } else {
+            // Even the minimum font can't fit it on one line — split into
+            // two lines: "Press Enter for" on top, the label itself below.
+            // Each line gets its own shrink-to-fit pass since the label
+            // alone is a different (usually shorter) string than the
+            // combined text.
+            const line1 = "Press Enter for";
+            const line2 = label;
+            const size1 = this._fitSingleLine(ctx, line1, maxTextWidth);
+            const size2 = this._fitSingleLine(ctx, line2, maxTextWidth);
+            const size = Math.min(size1, size2);
+
+            ctx.font = this._fontString(size);
+            const lineGap = size * 1.15;
+            ctx.fillText(line1, width / 2, height / 2 - lineGap / 2);
+            ctx.fillText(line2, width / 2, height / 2 + lineGap / 2);
+        }
 
         this.texture.needsUpdate = true;
+        // Panel geometry is intentionally NOT touched here — it stays at
+        // its fixed PANEL_WIDTH/PANEL_HEIGHT for every trigger.
     }
 
     _roundRect(ctx, x, y, w, h, r) {
@@ -91,11 +128,6 @@ export class RouteTriggerBillboard {
         ctx.closePath();
     }
 
-    // worldPosition: THREE.Vector3 — already the anchor point (
-    // RouteTriggerSystem computes the offset above the trigger).
-    // label: this trigger's display name, e.g. "My Github".
-    // callbacks: { onConfirm } — called when Enter is pressed while the
-    // panel is visible.
     show(worldPosition, label, { onConfirm }) {
         if (label !== this.currentLabel) {
             this._drawPanel(label);
@@ -114,10 +146,6 @@ export class RouteTriggerBillboard {
         this.currentLabel = null;
     }
 
-    // Called every frame from main.js's animate() with the live camera.
-    // Copying the camera's world quaternion onto the group is the standard
-    // "always face the viewer" billboarding technique — same as
-    // MovableObjectBillboard.
     update(camera) {
         if (!this.visible) return;
         this.group.quaternion.copy(camera.quaternion);
@@ -126,11 +154,7 @@ export class RouteTriggerBillboard {
     _onKeyDown(event) {
         if (!this.visible || !this.callbacks) return;
         if (event.code !== "Enter" && event.code !== "NumpadEnter") return;
-        // Ignore OS key-repeat so holding Enter down doesn't fire the
-        // confirm callback (and therefore the page navigation) many times.
         if (event.repeat) return;
-        // A focused text field (e.g. DevTools' position/rotation inputs)
-        // gets first claim on Enter.
         const active = document.activeElement;
         if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) return;
 

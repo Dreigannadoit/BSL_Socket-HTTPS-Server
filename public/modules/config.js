@@ -21,6 +21,7 @@ export const SOUND_FILES = {
     engine: "engine.mp3",
     hotspot: "hotspot.mp3",
     rolling: "rolling.mp3",
+    warp: "warp_sfx.mp3",
 };
 
 // ── Ball ──
@@ -600,12 +601,6 @@ export const ROUTE_TRIGGER_CONTENT = {
     },
     ToHomePageTrigger: {
         label: "Home Page",
-        // Resolved against the CURRENT page's URL at navigation time
-        // (rather than a baked-in absolute path) so this keeps working
-        // whether the game is served from "http://localhost:5050/",
-        // a real domain, or a sub-path. Targets "about" (no extension) —
-        // the dev server serves the about page at that clean route rather
-        // than at "about.html" directly.
         url: () => new URL("home", window.location.href).href,
     },
     ToGithub: {
@@ -615,6 +610,10 @@ export const ROUTE_TRIGGER_CONTENT = {
     ToLinkedIn: {
         label: "My Linkedin",
         url: "https://www.linkedin.com/in/dreiabmab1/",
+    },
+    ToAWorldThatDoesntExist: {
+        label: "A World That Doesn’t Exist",
+        url: () => new URL("Wifies", window.location.href).href,
     },
 };
 

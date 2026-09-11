@@ -293,6 +293,12 @@ button.mode_selector_button:hover {
   color: #fff;
 }
 
+.main_wrapper p{
+    background-color: #FAFAF2;
+    color: #111;
+  padding: 10px;
+}
+
 /* ==========================================================================
    Hotspot 1
    ========================================================================== */
@@ -458,7 +464,7 @@ button.mode_selector_button:hover {
 }
 
 .hotspot-content-2 .slider p {
-  font-size: 22px;
+  font-size: 18px;
 }
 
 .hotspot-content-2 .side_wrapper {
@@ -549,7 +555,7 @@ button.mode_selector_button:hover {
 }
 
 .hotspot-content-3 .slider_viewport a {
-  color: #fff;
+  color: #111;
 }
 
 .hotspot-content-3 .slider {
@@ -644,7 +650,7 @@ button.mode_selector_button:hover {
 }
 
 .hotspot-content-4 .slider_viewport a {
-  color: #fff;
+  color: #111;
 }
 
 .hotspot-content-4 .slider {
@@ -736,7 +742,7 @@ button.mode_selector_button:hover {
 }
 
 .hotspot-content-5 .slider_viewport a {
-  color: #fff;
+  color: #111;
 }
 
 .hotspot-content-5 .slider {

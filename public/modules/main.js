@@ -122,7 +122,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     // to see or move until the loading screen clears and the beam-drop
     // sequence below reveals the player. See the ballReady/levelReady
     // handshake near loadLevel() for exactly when that happens.
-    const playerEntrance = new PlayerEntrance(scene);
+    const playerEntrance = new PlayerEntrance(scene, audioManager);
     playerEntrance.hidePlayer(ballMesh, player);
 
     // ── Respawn / fall handling ──
@@ -176,7 +176,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     // playerExit.js) at the ball's current position before the page
     // actually navigates, so leaving reads as the mirror image of arriving.
     const routeTriggerBillboard = new RouteTriggerBillboard(scene, camera, renderer.domElement);
-    const playerExit = new PlayerExit(scene);
+    const playerExit = new PlayerExit(scene, audioManager);
     const routeTriggerSystem = new RouteTriggerSystem({
         scene,
         ui: routeTriggerBillboard,

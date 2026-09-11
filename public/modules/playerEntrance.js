@@ -107,8 +107,9 @@ export function createEntranceBeamVisuals(scene) {
 // and "rising back up and disappearing" instead of just stretching in
 // place.
 export class PlayerEntrance {
-    constructor(scene) {
+    constructor(scene, audioManager = null) {
         this.scene = scene;
+        this.audioManager = audioManager;
         this.state = "idle"; // idle -> descend -> hold -> retract -> done
         this.elapsed = 0;
         this.ballMesh = null;
@@ -162,6 +163,7 @@ export class PlayerEntrance {
         // flash. Player regains control later, once the beam has fully
         // retracted (see _onFinished).
         if (this.ballMesh) this.ballMesh.visible = true;
+        if (this.audioManager) this.audioManager.playWarpSound();
         this.ring.visible = true;
         this.ring.material.opacity = 1;
         this.ring.scale.setScalar(0.3);

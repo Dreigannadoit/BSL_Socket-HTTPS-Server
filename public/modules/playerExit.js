@@ -21,8 +21,9 @@ import {
 // the page) — the player is deliberately left frozen/hidden rather than
 // restored, since the page is about to unload anyway.
 export class PlayerExit {
-    constructor(scene) {
+    constructor(scene, audioManager = null) {
         this.scene = scene;
+        this.audioManager = audioManager;
         this.state = "idle"; // idle -> descend -> hold -> retract -> done
         this.elapsed = 0;
         this.ballMesh = null;
@@ -74,6 +75,7 @@ export class PlayerExit {
         // instead of revealing it, right as the ground-flash ring pops —
         // the beam visually "erases" the player at this instant.
         if (this.ballMesh) this.ballMesh.visible = false;
+        if (this.audioManager) this.audioManager.playWarpSound();
         this.ring.visible = true;
         this.ring.material.opacity = 1;
         this.ring.scale.setScalar(0.3);

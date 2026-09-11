@@ -561,9 +561,9 @@ const HOTSPOT_CONTENT = {
         className: "hotspot-content-2",
         render: () => `
     <div class="main_wrapper about">
-        <h1>Outro.</h1>
+        <h1>What up.</h1>
 
-        <p>Hello</p>
+        <p>Hey guys, I'm Drei, a Cybersecurity Oriented developer focusing on Web Systems and avid pursuer of DevSecOps practices.</p>
     </div>
     `
     },
@@ -571,9 +571,9 @@ const HOTSPOT_CONTENT = {
         className: "hotspot-content-3",
         render: () => `
     <div class="main_wrapper about">
-        <h1>Outro.</h1>
+        <h1>What up. (Pt 2)</h1>
 
-        <p>Hello</p>
+        <p>I also do game development as a creative outlet.</p>
     </div>
     `
     },
@@ -581,9 +581,9 @@ const HOTSPOT_CONTENT = {
         className: "hotspot-content-4",
         render: () => `
     <div class="main_wrapper about">
-        <h1>Outro.</h1>
+        <h1>Let me tell you something...</h1>
 
-        <p>Hello</p>
+        <p>My hobbies include biking, coding, and (most recenetly) going to the gym.</p>
     </div>
     `
     },
@@ -591,9 +591,9 @@ const HOTSPOT_CONTENT = {
         className: "hotspot-content-5",
         render: () => `
     <div class="main_wrapper about">
-        <h1>Outro.</h1>
+        <h1>A message of Thanks.</h1>
 
-        <p>Hello</p>
+        <p>Thanks for exploring this little project I made. Was fun devloping and I hoped you found it enjoyable.</p>
     </div>
     `
     },
