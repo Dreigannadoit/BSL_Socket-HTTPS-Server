@@ -5,6 +5,8 @@ import { createLighting } from "./lighting.js";
 import { createPhysicsWorld } from "./physicsWorld.js";
 import { createBall } from "./ball.js";
 import { AudioManager } from "./audioManager.js";
+import { BackgroundMusicManager } from "./backgroundMusic.js";
+import { MusicToggleUI } from "./musicToggleUI.js";
 import { BloomRenderer } from "./bloomRenderer.js";
 import { GlowPath } from "./glowPath.js";
 import { PlayerFog } from "./fog.js";
@@ -31,7 +33,7 @@ import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL, GAME_MODE_SPEEDRUN } from
 // modes, dev tools, and the level itself. Used by both the main game
 // (game.js, default maze GLB) and the about page (about.js), which is
 // identical in every way except which world it loads — see `levelUrl`.
-export function startGame({ levelUrl = GLB_URL } = {}) {
+export function startGame({ levelUrl = GLB_URL, bgMusicTrack = "home" } = {}) {
     // ── bfcache guard ──
     // Many browsers (Safari/Firefox always, Chrome often) restore a page
     // from the back-forward cache on Back/Forward navigation instead of
@@ -101,6 +103,19 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     // ── Audio ──
     const audioManager = new AudioManager();
 
+    // ── Background music ──
+    // Home page opens on "home", the about page passes bgMusicTrack:
+    // "about" (see about.js) — GameModeManager crossfades home <-> "rush"
+    // around a timed run, and hotspotSystem.js ducks whichever track is
+    // playing while an H2-H5 narration clip is active. See
+    // backgroundMusic.js.
+    const backgroundMusic = new BackgroundMusicManager(bgMusicTrack);
+
+    // ── Music on/off (top-right) ──
+    // Only affects backgroundMusic above — SFX and hotspot narration are
+    // untouched. See musicToggleUI.js.
+    const musicToggleUI = new MusicToggleUI(backgroundMusic);
+
     // ── Neon glow path ──
     const glowPath = new GlowPath();
 
@@ -140,6 +155,9 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     const hotspotSystem = new HotspotSystem(hotspotPopup, () => player.stick(HOTSPOT_STUCK_DURATION), {
         onSelectMode: (mode) => gameModeManager.selectMode(mode),
         getCurrentMode: () => gameModeManager.getMode(),
+        // Ducks/restores the background music while an H2-H5 narration
+        // clip plays — see BackgroundMusicManager.setDucked.
+        onNarrationStateChange: (isPlaying) => backgroundMusic.setDucked(isPlaying),
     });
 
     // ── Game modes (Free Roam / Speedrun / Time Trial) ──
@@ -152,6 +170,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         respawnSystem,
         hotspotSystem,
         audioManager,
+        backgroundMusic,
         ui: gameModeUI,
         glowPath,
     });

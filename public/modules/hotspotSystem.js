@@ -20,12 +20,18 @@ const narration = {
 // clip's owner, this is where the player actually is right now.
 let currentActiveHotspotName = null;
 
+// Set by HotspotSystem's constructor from context.onNarrationStateChange
+// (main.js wires this to BackgroundMusicManager.setDucked) — module-level
+// since narration playback itself is module-level state, not per-instance.
+// Only one HotspotSystem is ever constructed per page, so this is safe.
+let narrationChangeCallback = null;
+
 function getCancelButton() {
     if (narration.cancelBtn) return narration.cancelBtn;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.id = "narration-cancel-button";
-    btn.textContent = "Stop Audio";
+    btn.textContent = "Stop Narration";
     Object.assign(btn.style, {
         position: "fixed",
         left: "20px",
@@ -65,6 +71,19 @@ function refreshCancelButtonVisibility() {
     getCancelButton().style.display = shouldShow ? "flex" : "none";
 }
 
+// Single choke point for "narration playback state may have changed" —
+// call this instead of refreshCancelButtonVisibility() directly whenever
+// narration.audio starts, pauses, resumes, ends, or is cleared. Updates
+// the floating cancel button AND tells main.js (via the
+// onNarrationStateChange context callback) whether to duck the background
+// music, so the two never drift out of sync.
+function onNarrationChanged() {
+    refreshCancelButtonVisibility();
+    if (narrationChangeCallback) {
+        narrationChangeCallback(!!narration.audio && !narration.audio.paused);
+    }
+}
+
 // Fully stops and clears whatever narration clip is currently active —
 // used by the floating cancel button, and internally whenever a different
 // hotspot's clip is about to start.
@@ -75,7 +94,7 @@ function stopNarration() {
     }
     narration.audio = null;
     narration.hotspotName = null;
-    refreshCancelButtonVisibility();
+    onNarrationChanged();
 }
 
 // Wires a popup's ".Record_player" button (see Hotspot_2-5 below) to fetch
@@ -106,7 +125,7 @@ function setupRecordPlayer(popupEl, file, hotspotName) {
             } else {
                 narration.audio.pause();
             }
-            refreshCancelButtonVisibility();
+            onNarrationChanged();
             return;
         }
 
@@ -128,10 +147,10 @@ function setupRecordPlayer(popupEl, file, hotspotName) {
                     narration.audio = null;
                     narration.hotspotName = null;
                 }
-                refreshCancelButtonVisibility();
+                onNarrationChanged();
             });
             await audio.play();
-            refreshCancelButtonVisibility();
+            onNarrationChanged();
         } catch (err) {
             console.error(`Failed to load hotspot audio ${file}:`, err);
         } finally {
@@ -765,6 +784,9 @@ export class HotspotSystem {
         this.popupEl = popupEl;
         this.onEnter = onEnter;
         this.context = context;
+        // See the module-level `narrationChangeCallback` declaration above
+        // — wired to BackgroundMusicManager.setDucked by main.js.
+        narrationChangeCallback = context.onNarrationStateChange || null;
         this.hotspots = []; // { name, position, content, node, hidden }
         this.activeHotspot = null; // currently-inside hotspot, or null
         this.glowMaterials = []; // pulsed each frame, same pattern as GlowPath

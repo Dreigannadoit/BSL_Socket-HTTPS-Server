@@ -33,6 +33,33 @@ export const SOUND_FILES = {
     warp: "warp_sfx.mp3",
 };
 
+// ── Background music ──
+// Resolved via resolveAssetUrl() below (".mp3" -> AUDIO_BASE + its ".b64"
+// sidecar, same binaryAssetLoader pipeline as everything else) rather than
+// SOUND_FILES' own map — these loop continuously in the background instead
+// of being one-shot/looping SFX layered by AudioManager.
+export const BG_MUSIC_FILES = {
+    home: "home.mp3",
+    about: "about.mp3",
+    rush: "Rush.mp3",
+};
+// "Full" volume for whichever background track is currently active
+// (pre-duck, pre-fade-progress). Tune this to taste against the SFX mix.
+export const BG_MUSIC_VOLUME = 0.20;
+// Fraction of BG_MUSIC_VOLUME applied while a hotspot's H2-H5
+// Record_player narration is playing (see BackgroundMusicManager.setDucked
+// and hotspotSystem.js) — low enough that the narration stays clearly
+// forward in the mix without cutting the music out entirely.
+export const BG_MUSIC_DUCK_LEVEL = 0.25;
+// Crossfade durations (seconds). Home -> Rush is a quick swap the instant
+// a timed run begins; Rush -> Home eases back out once the run ends.
+export const BG_MUSIC_FAST_FADE = 0.6;
+export const BG_MUSIC_SLOW_FADE = 3.0;
+// How long a duck engage/disengage takes to reach its target level —
+// smoothed rather than snapped so it doesn't click/pop when H2-H5 narration
+// starts or stops.
+export const BG_MUSIC_DUCK_FADE = 0.35;
+
 // Maps a bare filename's extension to its subfolder under assets/. Used by
 // resolveAssetUrl() for call sites (like hotspotSystem.js's data-b64-src
 // scan) that resolve a mix of media types generically rather than knowing

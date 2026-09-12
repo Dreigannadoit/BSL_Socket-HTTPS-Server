@@ -15,6 +15,8 @@ import {
     GLOW_COLOR,
     GLOW_COLOR_ALERT,
     IMAGE_BASE,
+    BG_MUSIC_FAST_FADE,
+    BG_MUSIC_SLOW_FADE,
 } from "./config.js";
 import { EndTriggerEffect } from "./endTriggerEffect.js";
 import { fetchAssetBlobURL } from "./binaryAssetLoader.js";
@@ -46,7 +48,7 @@ const MODE_LABELS = {
 // HOTSPOT_CONTENT) — selectMode()/getMode() are what that popup's buttons
 // call into.
 export class GameModeManager {
-    constructor({ scene, world, addTrimeshCollider, ballBody, player, respawnSystem, hotspotSystem, audioManager, ui, glowPath }) {
+    constructor({ scene, world, addTrimeshCollider, ballBody, player, respawnSystem, hotspotSystem, audioManager, backgroundMusic, ui, glowPath }) {
         this.scene = scene;
         this.world = world;
         this.addTrimeshCollider = addTrimeshCollider;
@@ -55,6 +57,14 @@ export class GameModeManager {
         this.respawnSystem = respawnSystem;
         this.hotspotSystem = hotspotSystem;
         this.audioManager = audioManager;
+        // Crossfaded to "rush" the instant a timed run starts (StartTrigger)
+        // and back to "home" once it ends (EndTrigger success, or timing
+        // out on Time Trial) — see _onStartTouched/_completeSpeedrun/
+        // _completeTimeTrial/_failTimeTrial below. Optional: the about page
+        // constructs a GameModeManager too (harmlessly inert there, since
+        // its level has no StartTrigger/EndTrigger), so this is guarded
+        // with `?.` rather than assumed present.
+        this.backgroundMusic = backgroundMusic;
         this.ui = ui;
         this.glowPath = glowPath; // for the red/blue orb-shortfall glow swap (see _updateGlowColor)
 
@@ -328,6 +338,12 @@ export class GameModeManager {
         this.runStarted = true;
         this.audioManager.playHotspotSound(0.5);
 
+        // Quick swap to the "rush" track the instant a timed run actually
+        // begins — Free Roam never touches background music at all.
+        if (this.mode === GAME_MODE_SPEEDRUN || this.mode === GAME_MODE_TIME_TRIAL) {
+            this.backgroundMusic?.crossfadeTo("rush", BG_MUSIC_FAST_FADE);
+        }
+
         // In any timed mode (never Free Roam, where free movement in both
         // directions is the point), the player shouldn't be able to roll
         // back through the start line mid-run. Deferred to
@@ -398,6 +414,8 @@ export class GameModeManager {
         this._runEnded = true;   // stop the countdown/orb-pickup checks the instant EndTrigger is hit  
         this.player.setFrozen(true);
         this.audioManager.playHotspotSound(0.6);
+        // Slow ease back to "home" now that the run is complete.
+        this.backgroundMusic?.crossfadeTo("home", BG_MUSIC_SLOW_FADE);
         const finalTime = this._formatTime(this.speedrunElapsed);
         this.ui.showPopup({
             title: "Speedrun Complete!",
@@ -410,6 +428,8 @@ export class GameModeManager {
         this._runEnded = true; // stop the countdown/orb-pickup checks the instant EndTrigger is hit
         this.player.setFrozen(true);
         this.audioManager.playHotspotSound(0.6);
+        // Slow ease back to "home" now that the run is complete.
+        this.backgroundMusic?.crossfadeTo("home", BG_MUSIC_SLOW_FADE);
 
         // this.timeTrialRemaining hasn't been decremented yet this frame
         // (_checkEndTrigger runs before the countdown block in update()),
@@ -443,6 +463,9 @@ export class GameModeManager {
         this._failing = true;
         this._runEnded = true;
         this.player.setFrozen(true);
+        // Not explicitly requested, but left on "rush" forever after a
+        // failed run would be a clear bug — ease back to "home" here too.
+        this.backgroundMusic?.crossfadeTo("home", BG_MUSIC_SLOW_FADE);
 
         // Insufficient orbs takes priority in the message even though both
         // cases are "ran out of time" — an incomplete orb count is the more
