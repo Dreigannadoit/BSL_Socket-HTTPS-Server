@@ -1,16 +1,25 @@
 // ── Asset locations ──
+// public/assets/ is split into one subfolder per media type — keep new
+// assets sorted into the matching folder rather than dropped back into
+// assets/ directly. See resolveAssetUrl() below for filename -> folder
+// lookups where the call site handles a mix of types.
 export const ASSET_BASE = "/assets/";
-export const GLB_URL = ASSET_BASE + "maze_platform_high.glb";
+export const AUDIO_BASE = ASSET_BASE + "audio/";
+export const IMAGE_BASE = ASSET_BASE + "images/";
+export const VIDEO_BASE = ASSET_BASE + "video/";
+export const MODEL_BASE = ASSET_BASE + "models/";
+
+export const GLB_URL = MODEL_BASE + "maze_platform_high.glb";
 // Alternate world loaded on the about page (about.html/about.js) instead of
 // the normal maze — same loadLevel()/game logic, just a different GLB. See
 // main.js's startGame({ levelUrl }).
-export const ABOUT_GLB_URL = ASSET_BASE + "about_environment.glb";
-export const BALL_GLB_URL = ASSET_BASE + "ball.glb";
+export const ABOUT_GLB_URL = MODEL_BASE + "about_environment.glb";
+export const BALL_GLB_URL = MODEL_BASE + "ball.glb";
 // "Nebula Skybox 16k" by Jungle Jim (sketchfab.com/jungle_jim), CC-BY-4.0
 // (https://creativecommons.org/licenses/by/4.0/) — license requires
 // attribution wherever the game is shown (credits screen, README, etc.);
 // sky.js only wires up the asset, it doesn't render a credits UI.
-export const SKY_GLB_URL = ASSET_BASE + "nebula_skybox_16k.glb";
+export const SKY_GLB_URL = MODEL_BASE + "nebula_skybox_16k.glb";
 
 export const SOUND_FILES = {
     bounce1: "bounce1.mp3",
@@ -23,6 +32,32 @@ export const SOUND_FILES = {
     rolling: "rolling.mp3",
     warp: "warp_sfx.mp3",
 };
+
+// Maps a bare filename's extension to its subfolder under assets/. Used by
+// resolveAssetUrl() for call sites (like hotspotSystem.js's data-b64-src
+// scan) that resolve a mix of media types generically rather than knowing
+// the type up front.
+const EXT_TO_ASSET_BASE = {
+    mp3: AUDIO_BASE,
+    wav: AUDIO_BASE,
+    png: IMAGE_BASE,
+    jpg: IMAGE_BASE,
+    jpeg: IMAGE_BASE,
+    svg: IMAGE_BASE,
+    mp4: VIDEO_BASE,
+    webm: VIDEO_BASE,
+    glb: MODEL_BASE,
+    gltf: MODEL_BASE,
+};
+
+// Resolves a bare filename (e.g. "FreeRoam.png") to its full URL under the
+// correct assets/ subfolder, based on extension. Falls back to ASSET_BASE
+// (the assets/ root) for anything unrecognized.
+export function resolveAssetUrl(filename) {
+    const ext = filename.slice(filename.lastIndexOf(".") + 1).toLowerCase();
+    const base = EXT_TO_ASSET_BASE[ext] || ASSET_BASE;
+    return base + filename;
+}
 
 // ── Ball ──
 export const BALL_RADIUS = 0.35;

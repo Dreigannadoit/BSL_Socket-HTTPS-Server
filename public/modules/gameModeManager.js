@@ -14,7 +14,7 @@ import {
     TRIGGER_EXPAND,
     GLOW_COLOR,
     GLOW_COLOR_ALERT,
-    ASSET_BASE,
+    IMAGE_BASE,
 } from "./config.js";
 import { EndTriggerEffect } from "./endTriggerEffect.js";
 import { fetchAssetBlobURL } from "./binaryAssetLoader.js";
@@ -155,7 +155,7 @@ export class GameModeManager {
     // THREE.TextureLoader since this is a real in-scene material map
     // rather than a DOM <img>/<video> src.
     _applyStartTriggerTexture() {
-        fetchAssetBlobURL(ASSET_BASE + "Road_Block.jpg", "image/jpeg")
+        fetchAssetBlobURL(IMAGE_BASE + "Road_Block.jpg", "image/jpeg")
             .then((blobUrl) => {
                 new THREE.TextureLoader().load(
                     blobUrl,

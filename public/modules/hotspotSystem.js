@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER, HOTSPOT_ENTER_RADIUS, HOTSPOT_EXIT_RADIUS, ASSET_BASE } from "./config.js";
+import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER, HOTSPOT_ENTER_RADIUS, HOTSPOT_EXIT_RADIUS, AUDIO_BASE, resolveAssetUrl } from "./config.js";
 import { fetchAssetBlobURL } from "./binaryAssetLoader.js";
 
 // Shared, module-level narration state — deliberately NOT scoped to a
@@ -79,7 +79,7 @@ function stopNarration() {
 }
 
 // Wires a popup's ".Record_player" button (see Hotspot_2-5 below) to fetch
-// and play its narration clip — e.g. "H2.mp3" -> ASSET_BASE + "H2.mp3.b64",
+// and play its narration clip — e.g. "H2.mp3" -> AUDIO_BASE + "H2.mp3.b64",
 // same base64-sidecar pipeline as the images/videos above.
 //
 // Behavior:
@@ -119,7 +119,7 @@ function setupRecordPlayer(popupEl, file, hotspotName) {
         loading = true;
         btn.disabled = true;
         try {
-            const blobUrl = await fetchAssetBlobURL(ASSET_BASE + file, "audio/mpeg");
+            const blobUrl = await fetchAssetBlobURL(AUDIO_BASE + file, "audio/mpeg");
             const audio = new Audio(blobUrl);
             narration.audio = audio;
             narration.hotspotName = hotspotName;
@@ -305,7 +305,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(ASSET_BASE + file, type)
+                fetchAssetBlobURL(resolveAssetUrl(file), type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -407,7 +407,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(ASSET_BASE + file, type)
+                fetchAssetBlobURL(resolveAssetUrl(file), type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -500,7 +500,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(ASSET_BASE + file, type)
+                fetchAssetBlobURL(resolveAssetUrl(file), type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -589,7 +589,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(ASSET_BASE + file, type)
+                fetchAssetBlobURL(resolveAssetUrl(file), type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -677,7 +677,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(ASSET_BASE + file, type)
+                fetchAssetBlobURL(resolveAssetUrl(file), type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();

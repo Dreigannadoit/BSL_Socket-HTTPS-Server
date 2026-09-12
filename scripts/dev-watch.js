@@ -34,13 +34,17 @@ const http = require("http");
 const ROOT = path.join(__dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 const ASSETS_DIR = path.join(PUBLIC_DIR, "assets");
+// assets/ is split into one subfolder per media type (see
+// public/modules/config.js's AUDIO_BASE/IMAGE_BASE/VIDEO_BASE/MODEL_BASE) —
+// the watcher walks each of these rather than the assets/ root directly.
+const ASSET_SUBDIRS = ["audio", "images", "video", "models"];
 const LIVERELOAD_PORT = 5051;
 
 // ── asset encoding ──────────────────────────────────────────────────────
 
 // Extensions that ship as ".b64" sidecars (mirrors scripts/encode-assets.bat
 // and public/modules/binaryAssetLoader.js). .svg is deliberately excluded —
-// it's plain text and public/assets/IconMe.svg is served as-is.
+// it's plain text and public/assets/images/IconMe.svg is served as-is.
 const BINARY_EXTS = new Set([".png", ".jpg", ".jpeg", ".mp3", ".mp4", ".glb"]);
 
 function isBinaryAsset(filename) {
@@ -84,14 +88,14 @@ function debounce(key, fn, delay = 150) {
     );
 }
 
-function reconcileAssetsOnStartup() {
-    const entries = fs.readdirSync(ASSETS_DIR);
+function reconcileAssetsInDir(dir) {
+    const entries = fs.readdirSync(dir);
     const sourceNames = new Set(entries.filter((n) => !n.endsWith(".b64")));
 
     // Encode anything missing or stale (source newer than its .b64).
     for (const name of entries) {
         if (!isBinaryAsset(name)) continue;
-        const full = path.join(ASSETS_DIR, name);
+        const full = path.join(dir, name);
         const sidecar = full + ".b64";
         if (!fs.existsSync(sidecar)) {
             encodeAsset(full);
@@ -108,10 +112,17 @@ function reconcileAssetsOnStartup() {
         if (!name.endsWith(".b64")) continue;
         const sourceName = name.slice(0, -4); // strip ".b64"
         if (!sourceNames.has(sourceName)) {
-            fs.unlink(path.join(ASSETS_DIR, name), (err) => {
+            fs.unlink(path.join(dir, name), (err) => {
                 if (!err) console.log(`[assets] removed orphaned ${name}`);
             });
         }
+    }
+}
+
+function reconcileAssetsOnStartup() {
+    for (const sub of ASSET_SUBDIRS) {
+        const dir = path.join(ASSETS_DIR, sub);
+        if (fs.existsSync(dir)) reconcileAssetsInDir(dir);
     }
 }
 
@@ -123,9 +134,16 @@ function watchAssets() {
 
     reconcileAssetsOnStartup();
 
-    fs.watch(ASSETS_DIR, (eventType, filename) => {
-        if (!filename || !isBinaryAsset(filename)) return;
-        const full = path.join(ASSETS_DIR, filename);
+    // recursive:true walks audio/, images/, video/, models/ (and any future
+    // subfolder) in one watcher — same platform caveat as the live-reload
+    // watcher below (reliable on Windows/macOS, not on Linux; this project
+    // targets Windows per the README).
+    fs.watch(ASSETS_DIR, { recursive: true }, (eventType, filename) => {
+        if (!filename) return;
+        const normalized = filename.replace(/\\/g, "/");
+        const base = path.basename(normalized);
+        if (!isBinaryAsset(base)) return;
+        const full = path.join(ASSETS_DIR, normalized);
         debounce(full, () => {
             if (fs.existsSync(full)) {
                 encodeAsset(full);
@@ -135,7 +153,7 @@ function watchAssets() {
         });
     });
 
-    console.log(`[assets] watching ${path.relative(ROOT, ASSETS_DIR)} for changes`);
+    console.log(`[assets] watching ${path.relative(ROOT, ASSETS_DIR)} (audio/images/video/models) for changes`);
 }
 
 // ── live reload (Server-Sent Events) ────────────────────────────────────
