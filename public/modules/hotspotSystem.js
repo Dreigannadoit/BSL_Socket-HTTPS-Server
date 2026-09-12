@@ -2,6 +2,145 @@ import * as THREE from "three";
 import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER, HOTSPOT_ENTER_RADIUS, HOTSPOT_EXIT_RADIUS, ASSET_BASE } from "./config.js";
 import { fetchAssetBlobURL } from "./binaryAssetLoader.js";
 
+// Shared, module-level narration state — deliberately NOT scoped to a
+// single popup. A ".Record_player" clip is now allowed to keep playing
+// after the player rolls out of range and the popup that started it is
+// torn down, so the "currently playing" audio has to live somewhere that
+// outlives any one popup instance. Only one narration clip plays at a
+// time across every hotspot.
+const narration = {
+    audio: null,       // the currently loaded/playing <audio>, or null
+    hotspotName: null, // which Hotspot_N node "owns" it
+    cancelBtn: null,   // lazily-created floating stop button (bottom-left)
+};
+
+// Tracks whichever hotspot the ball is currently inside, kept in sync by
+// HotspotSystem._enter()/_exit() below. Used only to decide whether the
+// floating cancel button should be visible — narration.hotspotName is the
+// clip's owner, this is where the player actually is right now.
+let currentActiveHotspotName = null;
+
+function getCancelButton() {
+    if (narration.cancelBtn) return narration.cancelBtn;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "narration-cancel-button";
+    btn.textContent = "Stop Audio";
+    Object.assign(btn.style, {
+        position: "fixed",
+        left: "20px",
+        bottom: "20px",
+        zIndex: "1000",
+        display: "none",
+        alignItems: "center",
+        gap: "8px",
+        padding: "10px 18px",
+        borderRadius: "999px",
+        border: "1px solid rgba(255,255,255,0.25)",
+        background: "rgba(15,15,20,0.82)",
+        color: "#fff",
+        fontFamily: "inherit",
+        fontSize: "14px",
+        fontWeight: "600",
+        letterSpacing: "0.01em",
+        cursor: "pointer",
+        boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
+        backdropFilter: "blur(6px)",
+    });
+    btn.addEventListener("click", () => stopNarration());
+    document.body.appendChild(btn);
+    narration.cancelBtn = btn;
+    return btn;
+}
+
+// Shows/hides the floating cancel button based on current state: it should
+// only be visible while a clip is actively playing (not paused) AND the
+// player is somewhere other than that clip's own hotspot — right at the
+// hotspot, the in-popup Record_player button already offers play/pause.
+function refreshCancelButtonVisibility() {
+    const shouldShow =
+        !!narration.audio &&
+        !narration.audio.paused &&
+        narration.hotspotName !== currentActiveHotspotName;
+    getCancelButton().style.display = shouldShow ? "flex" : "none";
+}
+
+// Fully stops and clears whatever narration clip is currently active —
+// used by the floating cancel button, and internally whenever a different
+// hotspot's clip is about to start.
+function stopNarration() {
+    if (narration.audio) {
+        narration.audio.pause();
+        narration.audio.currentTime = 0;
+    }
+    narration.audio = null;
+    narration.hotspotName = null;
+    refreshCancelButtonVisibility();
+}
+
+// Wires a popup's ".Record_player" button (see Hotspot_2-5 below) to fetch
+// and play its narration clip — e.g. "H2.mp3" -> ASSET_BASE + "H2.mp3.b64",
+// same base64-sidecar pipeline as the images/videos above.
+//
+// Behavior:
+// - Clicking this hotspot's own button while its clip is already loaded
+//   just toggles play/pause (no re-fetch).
+// - Clicking it while a DIFFERENT hotspot's clip is playing cancels that
+//   clip first, then fetches and starts this one.
+// - The clip is intentionally NOT tied to popupEl/this hotspot's presence —
+//   it keeps playing after the player walks away (see `narration` above),
+//   surfaced instead via the floating cancel button.
+function setupRecordPlayer(popupEl, file, hotspotName) {
+    const btn = popupEl.querySelector(".Record_player");
+    if (!btn || !file) return;
+
+    let loading = false;
+
+    btn.addEventListener("click", async () => {
+        if (loading) return;
+
+        // Same clip already active for this hotspot -> just toggle it.
+        if (narration.audio && narration.hotspotName === hotspotName) {
+            if (narration.audio.paused) {
+                narration.audio.play();
+            } else {
+                narration.audio.pause();
+            }
+            refreshCancelButtonVisibility();
+            return;
+        }
+
+        // A different hotspot's clip is currently playing -> cancel it
+        // before starting this one.
+        if (narration.audio) {
+            stopNarration();
+        }
+
+        loading = true;
+        btn.disabled = true;
+        try {
+            const blobUrl = await fetchAssetBlobURL(ASSET_BASE + file, "audio/mpeg");
+            const audio = new Audio(blobUrl);
+            narration.audio = audio;
+            narration.hotspotName = hotspotName;
+            audio.addEventListener("ended", () => {
+                if (narration.audio === audio) {
+                    narration.audio = null;
+                    narration.hotspotName = null;
+                }
+                refreshCancelButtonVisibility();
+            });
+            await audio.play();
+            refreshCancelButtonVisibility();
+        } catch (err) {
+            console.error(`Failed to load hotspot audio ${file}:`, err);
+        } finally {
+            loading = false;
+            btn.disabled = false;
+        }
+    });
+}
+
 // Maps a hotspot's world node name (as authored in the level GLB, under a
 // "Hotspots" root — same pattern as "CollisionShapes"/"GlowPath") to the
 // popup content shown when the player rolls over it. `className` lets each
@@ -297,6 +436,8 @@ const HOTSPOT_CONTENT = {
             if (nextModeBtn) {
                 nextModeBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
             }
+
+            setupRecordPlayer(popupEl, "H2.mp3", "Hotspot_2");
         },
     },
     Hotspot_3: {
@@ -382,6 +523,8 @@ const HOTSPOT_CONTENT = {
             if (nextBtn) nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
 
             goToSlide(0);
+
+            setupRecordPlayer(popupEl, "H3.mp3", "Hotspot_3");
         },
     },
     Hotspot_4: {
@@ -469,6 +612,8 @@ const HOTSPOT_CONTENT = {
             if (nextBtn) nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
 
             goToSlide(0);
+
+            setupRecordPlayer(popupEl, "H4.mp3", "Hotspot_4");
         },
     },
     Hotspot_5: {
@@ -555,6 +700,8 @@ const HOTSPOT_CONTENT = {
             if (nextBtn) nextBtn.addEventListener("click", () => goToSlide(currentIndex + 1));
 
             goToSlide(0);
+
+            setupRecordPlayer(popupEl, "H5.mp3", "Hotspot_5");
         },
     },
     Hotspot_6: {
@@ -771,6 +918,7 @@ export class HotspotSystem {
 
     _enter(hotspot) {
         this.activeHotspot = hotspot;
+        currentActiveHotspotName = hotspot.name;
         this.popupEl.innerHTML = hotspot.content.render();
         this.popupEl.className = hotspot.content.className;
         void this.popupEl.offsetWidth;
@@ -778,13 +926,25 @@ export class HotspotSystem {
 
         if (hotspot.content.init) hotspot.content.init(this.popupEl, this.context);
 
+        // Arriving at a hotspot can only ever hide the cancel button (its
+        // own clip, if playing, is now controllable via the in-popup
+        // button) — never show it, so this is safe to call unconditionally.
+        refreshCancelButtonVisibility();
+
         if (this.onEnter) this.onEnter(hotspot);
     }
 
     _exit() {
         this.activeHotspot = null;
         this._devForced = false;
+        currentActiveHotspotName = null;
         this.popupEl.classList.remove("visible");
+        // Note: any Record_player narration is deliberately left playing
+        // here — it's meant to keep going while the player roams away from
+        // the hotspot that started it. See the `narration` state and
+        // refreshCancelButtonVisibility() above; the floating cancel
+        // button (not popup teardown) is what lets the player stop it.
+        refreshCancelButtonVisibility();
     }
 
     get isActive() {
