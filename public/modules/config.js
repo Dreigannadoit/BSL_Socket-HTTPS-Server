@@ -90,7 +90,7 @@ export function resolveAssetUrl(filename) {
 export const BALL_RADIUS = 0.35;
 
 // ── Movement ──
-export const MAX_SPEED = 7.3; // Free Roam / default
+export const MAX_SPEED = 5.5; // Free Roam / default
 export const ACCEL = 15;
 export const DECEL_RATE = 1.5;
 // Lower = smoother/slower direction changes while moving. Decoupled from
