@@ -62,19 +62,30 @@ canvas {
 
     color: #FAFAF2;
 
-    animation: guide_flash 2s ease infinite;
+    transition: opacity 0.5s ease;
 
+}
+
+/* Added once the world has fully loaded and the player regains control
+   (see main.js's showControlTutorial()) — kicks off the flash loop.
+   Dismissal on movement input is handled directly in controls.js via
+   inline styles, to guarantee a real 0.5s fade rather than an instant cut. */
+#controll_totorial.show {
+    animation: guide_flash 2s ease infinite;
 }
 
 @keyframes guide_flash {
     0% {
         opacity: 0;
     }
+    
+    10%{
+        opacity: 1;
+    }
 
     25% {
         opacity: 1;
     }
-
 
     50% {
         opacity: 1;
@@ -84,7 +95,7 @@ canvas {
         opacity: 1;
     }
 
-    100% {
+    90% {
         opacity: 0;
     }
 }
@@ -98,7 +109,7 @@ canvas {
 }
 
 #controll_totorial .guide_icons img {
-    height: 120px;
+    height: 150px;
 }
 
 

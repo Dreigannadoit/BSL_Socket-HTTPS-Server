@@ -225,17 +225,27 @@ export function startGame({ levelUrl = GLB_URL, bgMusicTrack = "home" } = {}) {
     let levelAssetReady = false;
     let levelSpawnPos = null;
 
+    // Reveals the "use your arrow keys / WASD" hint (#controll_totorial,
+    // see index.html/about.html) the moment the world is fully loaded
+    // AND the player actually regains control — not before. controls.js
+    // takes it from here and dismisses it on the first movement key press.
+    function showControlTutorial() {
+        const tutorial = document.getElementById("controll_totorial");
+        if (tutorial) tutorial.classList.add("show");
+    }
+
     function tryRevealPlayer() {
         if (!ballAssetReady || !levelAssetReady) return;
         loadingScreen.hide();
         if (levelSpawnPos) {
-            playerEntrance.play(levelSpawnPos);
+            playerEntrance.play(levelSpawnPos, showControlTutorial);
         } else {
             // Level failed to load — nothing sensible to play the beam
             // at, so just reveal the player where it is rather than
             // leaving it invisible/frozen forever.
             ballMesh.visible = true;
             player.setFrozen(false);
+            showControlTutorial();
         }
     }
 
