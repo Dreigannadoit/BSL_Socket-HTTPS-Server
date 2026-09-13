@@ -12,6 +12,7 @@ const narration = {
     audio: null,       // the currently loaded/playing <audio>, or null
     hotspotName: null, // which Hotspot_N node "owns" it
     cancelBtn: null,   // lazily-created floating stop button (bottom-left)
+    progress: null,    // lazily-created { container, fill, timeText } (middle-bottom)
 };
 
 // Tracks whichever hotspot the ball is currently inside, kept in sync by
@@ -71,6 +72,100 @@ function refreshCancelButtonVisibility() {
     getCancelButton().style.display = shouldShow ? "flex" : "none";
 }
 
+// Lazily builds the middle-bottom "duration tracker": a time readout
+// ("0:12 / 1:03") above a grey track with a neon-blue fill bar showing how
+// far through the current narration clip playback is.
+function getProgressBar() {
+    if (narration.progress) return narration.progress;
+
+    const container = document.createElement("div");
+    container.id = "narration-progress";
+    Object.assign(container.style, {
+        position: "fixed",
+        left: "50%",
+        bottom: "24px",
+        transform: "translateX(-50%)",
+        zIndex: "1000",
+        display: "none",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "6px",
+        fontFamily: "inherit",
+        pointerEvents: "none", // purely informational, never blocks clicks
+    });
+
+    const timeText = document.createElement("div");
+    Object.assign(timeText.style, {
+        color: "#fff",
+        fontSize: "13px",
+        fontWeight: "600",
+        letterSpacing: "0.02em",
+        textShadow: "0 1px 4px rgba(0,0,0,0.7)",
+    });
+    timeText.textContent = "0:00 / 0:00";
+
+    const track = document.createElement("div");
+    Object.assign(track.style, {
+        width: "min(320px, 70vw)",
+        height: "6px",
+        borderRadius: "999px",
+        background: "rgba(140,140,140,0.55)", // grey — full clip length
+        overflow: "hidden",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+    });
+
+    const fill = document.createElement("div");
+    Object.assign(fill.style, {
+        height: "100%",
+        width: "0%",
+        borderRadius: "999px",
+        background: "#00d9ff", // neon blue — current progress
+        boxShadow: "0 0 8px 1px rgba(0,217,255,0.85)",
+    });
+    track.appendChild(fill);
+
+    container.appendChild(timeText);
+    container.appendChild(track);
+    document.body.appendChild(container);
+
+    narration.progress = { container, fill, timeText };
+    return narration.progress;
+}
+
+function formatNarrationTime(seconds) {
+    if (!isFinite(seconds) || seconds < 0) seconds = 0;
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// Updates the time text + fill-bar width from the current narration
+// audio's currentTime/duration — called on "timeupdate" and
+// "loadedmetadata" (duration is unknown until metadata loads) while a
+// clip is active.
+function updateNarrationProgress() {
+    const audio = narration.audio;
+    if (!audio) return;
+    const { fill, timeText } = getProgressBar();
+    const duration = isFinite(audio.duration) ? audio.duration : 0;
+    const current = audio.currentTime || 0;
+    const pct = duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
+    fill.style.width = pct + "%";
+    timeText.textContent = `${formatNarrationTime(current)} / ${formatNarrationTime(duration)}`;
+}
+
+// Visible any time a narration clip is loaded (playing OR paused) — unlike
+// the cancel button, this isn't tied to hotspot proximity, so it shows
+// wherever the player is on the map.
+function refreshProgressBarVisibility() {
+    if (narration.audio) {
+        getProgressBar().container.style.display = "flex";
+        updateNarrationProgress();
+    } else if (narration.progress) {
+        narration.progress.container.style.display = "none";
+    }
+}
+
 // Single choke point for "narration playback state may have changed" —
 // call this instead of refreshCancelButtonVisibility() directly whenever
 // narration.audio starts, pauses, resumes, ends, or is cleared. Updates
@@ -79,6 +174,7 @@ function refreshCancelButtonVisibility() {
 // music, so the two never drift out of sync.
 function onNarrationChanged() {
     refreshCancelButtonVisibility();
+    refreshProgressBarVisibility();
     if (narrationChangeCallback) {
         narrationChangeCallback(!!narration.audio && !narration.audio.paused);
     }
@@ -142,6 +238,8 @@ function setupRecordPlayer(popupEl, file, hotspotName) {
             const audio = new Audio(blobUrl);
             narration.audio = audio;
             narration.hotspotName = hotspotName;
+            audio.addEventListener("timeupdate", updateNarrationProgress);
+            audio.addEventListener("loadedmetadata", updateNarrationProgress);
             audio.addEventListener("ended", () => {
                 if (narration.audio === audio) {
                     narration.audio = null;
