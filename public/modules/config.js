@@ -456,7 +456,7 @@ export const ORB_MIN_RADIUS = 0.15; // floor so a tiny/degenerate Sphere marker 
 // — the next orb only spawns once the current one is collected (see
 // GameModeManager._spawnNextChaseOrb).
 export const SPAWN_CHASE_DURATION = 270; // seconds on the Spawn Chase countdown (4 min and 30 sec minutes)
-export const SPAWN_CHASE_ORB_COUNT = 5; // orbs randomly picked from "Collectables" each run, spawned one at a time
+export const SPAWN_CHASE_ORB_COUNT = 10; // orbs randomly picked from "Collectables" each run, spawned one at a time
 
 // Padding (world units) added on top of the ball's own radius when
 // building the StartTrigger/EndTrigger bounding boxes, so a fast-moving
