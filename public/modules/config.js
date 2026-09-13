@@ -184,7 +184,7 @@ export const REVERSAL_MIN_SPEED = 1.2;       // skids can kick in at lower speed
 
 // ── Camera / skid feedback ──
 export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
-// export const CAMERA_OFFSET = { x: 16.2, y: 35, z: 16.2 };
+// export const CAMERA_OFFSET = { x: 16.2, y: 75, z: 16.2 };
 export const SKID_CAMERA_ROLL = 0.045;        // radians of camera roll at full skid intensity
 export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead of snapping
 
@@ -455,8 +455,8 @@ export const ORB_MIN_RADIUS = 0.15; // floor so a tiny/degenerate Sphere marker 
 // as Collection Time Trial, except its 10 orbs are dealt out one at a time
 // — the next orb only spawns once the current one is collected (see
 // GameModeManager._spawnNextChaseOrb).
-export const SPAWN_CHASE_DURATION = 360; // seconds on the Spawn Chase countdown (6 minutes)
-export const SPAWN_CHASE_ORB_COUNT = 10; // orbs randomly picked from "Collectables" each run, spawned one at a time
+export const SPAWN_CHASE_DURATION = 270; // seconds on the Spawn Chase countdown (4 min and 30 sec minutes)
+export const SPAWN_CHASE_ORB_COUNT = 5; // orbs randomly picked from "Collectables" each run, spawned one at a time
 
 // Padding (world units) added on top of the ball's own radius when
 // building the StartTrigger/EndTrigger bounding boxes, so a fast-moving
