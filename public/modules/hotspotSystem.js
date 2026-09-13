@@ -369,7 +369,7 @@ const HOTSPOT_CONTENT = {
                         <p>Compete with your freinds by collecting 20 orbs scattered throughout the map. The firts one to collect and bring and reach the end checkpoint wins. </p>
                     </div>
 
-                    <div class="start_menu coming_soon">
+                    <div class="start_menu">
                         <br>
                         <br>
                         <br>
@@ -377,12 +377,10 @@ const HOTSPOT_CONTENT = {
                         <br>
                         <br>
                         <br>
-                        <br>
-                        <br>
-                        <br>
-                        <p><b>Coming Soon</b></p>
                         <h1>Spawn Chase</h1>
                         <p>Find and collect all 10 orbs as quickly as possible—one at a time within 6 minutes. Each orb only appears after the last has been captured, so stay alert and keep moving.</p>
+                        <br>
+                        <button data-mode="spawnchase">Select</button>
                     </div>
 
                     <div class="start_menu coming_soon">

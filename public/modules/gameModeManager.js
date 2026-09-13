@@ -5,10 +5,13 @@ import {
     GAME_MODE_FREE_ROAM,
     GAME_MODE_SPEEDRUN,
     GAME_MODE_TIME_TRIAL,
+    GAME_MODE_SPAWN_CHASE,
     MAX_SPEED_BY_MODE,
     HOTSPOT_1_NAME,
     TIME_TRIAL_DURATION,
     TIME_TRIAL_ORB_COUNT,
+    SPAWN_CHASE_DURATION,
+    SPAWN_CHASE_ORB_COUNT,
     ORB_COLOR,
     ORB_MIN_RADIUS,
     TRIGGER_EXPAND,
@@ -30,19 +33,24 @@ const MODE_LABELS = {
     [GAME_MODE_FREE_ROAM]: "Free Roam",
     [GAME_MODE_SPEEDRUN]: "Speedrun",
     [GAME_MODE_TIME_TRIAL]: "Collection Time Trial",
+    [GAME_MODE_SPAWN_CHASE]: "Spawn Chase",
 };
 
-// Owns the three selectable game modes and everything that bookends a
+// Owns the four selectable game modes and everything that bookends a
 // timed run:
 //  - StartTrigger: a solid physics collider until a mode is picked (that's
 //    what physically blocks the player from the course), then passable —
 //    and, once passable, a trigger zone that starts the Speedrun timer /
-//    Time Trial countdown the instant the ball first rolls through it.
+//    Time Trial / Spawn Chase countdown the instant the ball first rolls
+//    through it.
 //  - EndTrigger: a pure trigger zone (never solid) whose effect depends on
 //    the active mode — a "restart?" confirmation in Free Roam, or the
-//    finish line in Speedrun/Time Trial.
+//    finish line in Speedrun/Time Trial/Spawn Chase.
 //  - Collectables: ~124 authored "Sphere" markers, of which Time Trial
-//    randomly lights up 20 as real, pickup-able glowing orbs each run.
+//    randomly lights up TIME_TRIAL_ORB_COUNT at once as real, pickup-able
+//    glowing orbs each run, and Spawn Chase randomly picks
+//    SPAWN_CHASE_ORB_COUNT but spawns them one at a time — the next only
+//    appears once the current one is collected.
 //
 // Hotspot_1 doubles as the mode-select menu (see hotspotSystem.js's
 // HOTSPOT_CONTENT) — selectMode()/getMode() are what that popup's buttons
@@ -59,8 +67,9 @@ export class GameModeManager {
         this.audioManager = audioManager;
         // Crossfaded to "rush" the instant a timed run starts (StartTrigger)
         // and back to "home" once it ends (EndTrigger success, or timing
-        // out on Time Trial) — see _onStartTouched/_completeSpeedrun/
-        // _completeTimeTrial/_failTimeTrial below. Optional: the about page
+        // out on Time Trial/Spawn Chase) — see _onStartTouched/
+        // _completeSpeedrun/_completeTimeTrial/_completeSpawnChase/
+        // _failCollectionRun below. Optional: the about page
         // constructs a GameModeManager too (harmlessly inert there, since
         // its level has no StartTrigger/EndTrigger), so this is guarded
         // with `?.` rather than assumed present.
@@ -68,7 +77,7 @@ export class GameModeManager {
         this.ui = ui;
         this.glowPath = glowPath; // for the red/blue orb-shortfall glow swap (see _updateGlowColor)
 
-        this.mode = null; // null | "freeroam" | "speedrun" | "timetrial"
+        this.mode = null; // null | "freeroam" | "speedrun" | "timetrial" | "spawnchase"
         this.runStarted = false; // has the ball touched StartTrigger yet, for the current mode
 
         this.startTriggerMesh = null;
@@ -90,13 +99,18 @@ export class GameModeManager {
         this.endEffect = new EndTriggerEffect();
 
         this.collectableCandidates = []; // { center: Vector3, radius } — all ~124, inventoried once
-        this.activeOrbs = []; // { mesh, center, radius } — the 20 live picks for the current Time Trial run
+        this.activeOrbs = []; // { mesh, center, radius } — the live orb(s) for the current Time Trial/Spawn Chase run
         this.orbsCollected = 0;
-        this._failing = false; // guards against _failTimeTrial firing more than once per run
-        this._runEnded = false; // true from the moment a Time Trial run succeeds or fails — freezes the countdown/orb checks in place
+        this._failing = false; // guards against _failCollectionRun firing more than once per run
+        this._runEnded = false; // true from the moment a timed run succeeds or fails — freezes the countdown/orb checks in place
 
         this.speedrunElapsed = 0;
         this.timeTrialRemaining = TIME_TRIAL_DURATION;
+        this.spawnChaseRemaining = SPAWN_CHASE_DURATION;
+        // Spawn Chase's not-yet-spawned picks, in spawn order — the next
+        // one is only spawned once the current activeOrbs entry is
+        // collected (see _spawnNextChaseOrb/_checkOrbPickups).
+        this._spawnChaseQueue = [];
 
         this.ui.setMode(null);
     }
@@ -250,18 +264,23 @@ export class GameModeManager {
         }
     }
 
-    // Dev-tool cheat: adds `seconds` to the live Time Trial countdown.
-    // No-op outside an active, still-running Time Trial run.
+    // Dev-tool cheat: adds `seconds` to the live Time Trial/Spawn Chase
+    // countdown. No-op outside an active, still-running run of one of
+    // those modes.
     addTime(seconds) {
-        if (this.mode !== GAME_MODE_TIME_TRIAL || !this.runStarted || this._runEnded) return;
-        this.timeTrialRemaining += seconds;
+        if (!this._isCollectionMode(this.mode) || !this.runStarted || this._runEnded) return;
+        if (this.mode === GAME_MODE_TIME_TRIAL) this.timeTrialRemaining += seconds;
+        else if (this.mode === GAME_MODE_SPAWN_CHASE) this.spawnChaseRemaining += seconds;
     }
 
     // Dev-tool cheat: instantly collects every currently-spawned orb —
     // same bookkeeping _checkOrbPickups() does per-orb on proximity, just
     // applied to all of them at once regardless of the ball's position.
+    // In Spawn Chase this also drains any not-yet-spawned queued orbs
+    // (there's normally only ever one spawned at a time), so the cheat
+    // actually finishes the run instead of just spawning the next one.
     collectAllOrbs() {
-        if (this.mode !== GAME_MODE_TIME_TRIAL || !this.runStarted || this._runEnded) return;
+        if (!this._isCollectionMode(this.mode) || !this.runStarted || this._runEnded) return;
         for (let i = this.activeOrbs.length - 1; i >= 0; i--) {
             const orb = this.activeOrbs[i];
             this.scene.remove(orb.mesh);
@@ -270,7 +289,9 @@ export class GameModeManager {
             this.activeOrbs.splice(i, 1);
             this.orbsCollected++;
         }
-        this.ui.setOrbCount(this.orbsCollected, TIME_TRIAL_ORB_COUNT);
+        this.orbsCollected += this._spawnChaseQueue.length;
+        this._spawnChaseQueue.length = 0;
+        this.ui.setOrbCount(this.orbsCollected, this._getOrbTotal());
         this._updateGlowColor();
     }
 
@@ -308,7 +329,17 @@ export class GameModeManager {
             this._checkOrbPickups(ballPosition);
 
             if (this.timeTrialRemaining <= 0) {
-                this._failTimeTrial();
+                this._failCollectionRun();
+            }
+        }
+
+        if (this.mode === GAME_MODE_SPAWN_CHASE && this.runStarted && !this._runEnded) {
+            this.spawnChaseRemaining -= dt;
+            this.ui.setTimer(this._formatTime(Math.max(0, this.spawnChaseRemaining)));
+            this._checkOrbPickups(ballPosition);
+
+            if (this.spawnChaseRemaining <= 0) {
+                this._failCollectionRun();
             }
         }
     }
@@ -340,7 +371,7 @@ export class GameModeManager {
 
         // Quick swap to the "rush" track the instant a timed run actually
         // begins — Free Roam never touches background music at all.
-        if (this.mode === GAME_MODE_SPEEDRUN || this.mode === GAME_MODE_TIME_TRIAL) {
+        if (this.mode === GAME_MODE_SPEEDRUN || this.mode === GAME_MODE_TIME_TRIAL || this.mode === GAME_MODE_SPAWN_CHASE) {
             this.backgroundMusic?.crossfadeTo("rush", BG_MUSIC_FAST_FADE);
         }
 
@@ -366,6 +397,14 @@ export class GameModeManager {
             this.ui.setOrbCount(this.orbsCollected, TIME_TRIAL_ORB_COUNT);
             this.ui.setTimer(this._formatTime(this.timeTrialRemaining));
             this.ui.flashMessage(`GO! Collect all ${TIME_TRIAL_ORB_COUNT} orbs!`);;
+            this._updateGlowColor();
+        } else if (this.mode === GAME_MODE_SPAWN_CHASE) {
+            this.spawnChaseRemaining = SPAWN_CHASE_DURATION;
+            this.orbsCollected = 0;
+            this._startSpawnChase();
+            this.ui.setOrbCount(this.orbsCollected, SPAWN_CHASE_ORB_COUNT);
+            this.ui.setTimer(this._formatTime(this.spawnChaseRemaining));
+            this.ui.flashMessage(`GO! Find the orb — ${SPAWN_CHASE_ORB_COUNT} to go!`);
             this._updateGlowColor();
         }
     }
@@ -394,6 +433,12 @@ export class GameModeManager {
                 this._completeTimeTrial();
             } else {
                 this.ui.flashMessage(`Collect all the orbs first! (${this.orbsCollected}/${TIME_TRIAL_ORB_COUNT})`);
+            }
+        } else if (this.mode === GAME_MODE_SPAWN_CHASE) {
+            if (this.orbsCollected >= SPAWN_CHASE_ORB_COUNT) {
+                this._completeSpawnChase();
+            } else {
+                this.ui.flashMessage(`Collect all the orbs first! (${this.orbsCollected}/${SPAWN_CHASE_ORB_COUNT})`);
             }
         }
     }
@@ -445,6 +490,26 @@ export class GameModeManager {
         });
     }
 
+    _completeSpawnChase() {
+        this._runEnded = true; // stop the countdown/orb-pickup checks the instant EndTrigger is hit
+        this.player.setFrozen(true);
+        this.audioManager.playHotspotSound(0.6);
+        // Slow ease back to "home" now that the run is complete.
+        this.backgroundMusic?.crossfadeTo("home", BG_MUSIC_SLOW_FADE);
+
+        // spawnChaseRemaining hasn't been decremented yet this frame
+        // (_checkEndTrigger runs before the countdown block in update()),
+        // so it's exactly the remaining time at the moment of completion.
+        const remaining = Math.max(0, this.spawnChaseRemaining);
+        const finalTime = this._formatTime(SPAWN_CHASE_DURATION - remaining);
+
+        this.ui.showPopup({
+            title: "Spawn Chase Complete!",
+            message: `All ${SPAWN_CHASE_ORB_COUNT} orbs collected!\nTime: ${finalTime}`,
+            buttons: [{ label: "Continue", onClick: () => { this.ui.hidePopup(); this._exitToSpawn(); } }],
+        });
+    }
+
     // Seconds-remaining-on-the-clock thresholds -> flavor line for a
     // successful (all orbs + EndTrigger reached in time) Collection Time
     // Trial finish. Ranges are inclusive of their upper bound.
@@ -458,7 +523,10 @@ export class GameModeManager {
         return "How the hell is that even possible??";
     }
 
-    _failTimeTrial() {
+    // Shared timeout-failure path for both collection-style modes
+    // (Collection Time Trial and Spawn Chase) — whichever one's countdown
+    // just hit zero.
+    _failCollectionRun() {
         if (this._failing) return; // remaining stays <= 0 across several frames — only fire once
         this._failing = true;
         this._runEnded = true;
@@ -470,7 +538,7 @@ export class GameModeManager {
         // Insufficient orbs takes priority in the message even though both
         // cases are "ran out of time" — an incomplete orb count is the more
         // specific/actionable reason the run failed.
-        const message = this.orbsCollected < TIME_TRIAL_ORB_COUNT
+        const message = this.orbsCollected < this._getOrbTotal()
             ? "Didn't collect all the orbs."
             : "Ran out of time.";
 
@@ -512,6 +580,7 @@ export class GameModeManager {
         this.orbsCollected = 0;
         this.speedrunElapsed = 0;
         this.timeTrialRemaining = TIME_TRIAL_DURATION;
+        this.spawnChaseRemaining = SPAWN_CHASE_DURATION;
         this.insideStart = false;
         this.insideEnd = false;
         this._pendingStartLock = false;
@@ -528,51 +597,95 @@ export class GameModeManager {
         }
     }
 
-    // Red while an active Collection Time Trial run is short on orbs,
-    // default neon blue otherwise (other modes, no mode, or all orbs in).
+    // Red while an active Collection Time Trial or Spawn Chase run is
+    // short on orbs, default neon blue otherwise (other modes, no mode,
+    // or all orbs in).
     _updateGlowColor() {
         if (!this.glowPath) return;
-        const short = this.mode === GAME_MODE_TIME_TRIAL && this.runStarted && this.orbsCollected < TIME_TRIAL_ORB_COUNT;
+        const short = this._isCollectionMode(this.mode) && this.runStarted && this.orbsCollected < this._getOrbTotal();
         const color = short ? GLOW_COLOR_ALERT : GLOW_COLOR;
         this.glowPath.setColor(color);
         this.endEffect.setColor(color);
     }
 
-    // Fisher–Yates partial shuffle to pull TIME_TRIAL_ORB_COUNT random,
-    // non-repeating picks out of the ~124 authored Sphere markers, then
-    // spawns a small glowing orb — bloom-enabled, same pattern as
-    // GlowPath/HotspotSystem's emissive markers — at each one's center. Its
-    // pickup hitbox is that same Sphere marker's own world-space bounding
-    // radius (see onLevelLoaded).
-    _spawnOrbs() {
-        this._clearOrbs();
+    // Builds one bloom-enabled glowing orb mesh at `center` and registers
+    // it in activeOrbs — the one bit of orb-spawning shared by Time
+    // Trial's "all at once" _spawnOrbs and Spawn Chase's one-at-a-time
+    // _spawnNextChaseOrb.
+    _createOrb(center, radius) {
+        const geo = new THREE.SphereGeometry(radius, 16, 16);
+        const mat = new THREE.MeshStandardMaterial({
+            color: ORB_COLOR,
+            emissive: ORB_COLOR,
+            emissiveIntensity: 2.4,
+            roughness: 0.3,
+            metalness: 0,
+            toneMapped: false, // let emissive push past 1.0 so bloom actually picks it up
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(center);
+        mesh.layers.enable(BLOOM_LAYER);
+        this.scene.add(mesh);
+        this.activeOrbs.push({ mesh, center: center.clone(), radius });
+    }
 
+    // Fisher–Yates partial shuffle, shared by Time Trial (spawns every
+    // pick immediately) and Spawn Chase (spawns picks one at a time —
+    // see _startSpawnChase). Returns the picks; does not touch the scene.
+    _pickRandomCandidates(count) {
         const pool = [...this.collectableCandidates];
         for (let i = pool.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [pool[i], pool[j]] = [pool[j], pool[i]];
         }
-        const picks = pool.slice(0, Math.min(TIME_TRIAL_ORB_COUNT, pool.length));
+        return pool.slice(0, Math.min(count, pool.length));
+    }
 
-        for (const { center, radius } of picks) {
-            const geo = new THREE.SphereGeometry(radius, 16, 16);
-            const mat = new THREE.MeshStandardMaterial({
-                color: ORB_COLOR,
-                emissive: ORB_COLOR,
-                emissiveIntensity: 2.4,
-                roughness: 0.3,
-                metalness: 0,
-                toneMapped: false, // let emissive push past 1.0 so bloom actually picks it up
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.copy(center);
-            mesh.layers.enable(BLOOM_LAYER);
-            this.scene.add(mesh);
-            this.activeOrbs.push({ mesh, center: center.clone(), radius });
-        }
+    // Collection Time Trial: pulls TIME_TRIAL_ORB_COUNT random,
+    // non-repeating picks out of the ~124 authored Sphere markers and
+    // spawns all of them at once. Each orb's pickup hitbox is that same
+    // Sphere marker's own world-space bounding radius (see onLevelLoaded).
+    _spawnOrbs() {
+        this._clearOrbs();
+        const picks = this._pickRandomCandidates(TIME_TRIAL_ORB_COUNT);
+        for (const { center, radius } of picks) this._createOrb(center, radius);
+    }
+
+    // Spawn Chase: picks SPAWN_CHASE_ORB_COUNT random, non-repeating
+    // candidates up front (so the run's full route is decided at the
+    // start, same as Time Trial), but only spawns the first one — the
+    // rest stay queued in _spawnChaseQueue and are dealt out one at a
+    // time as each is collected (see _spawnNextChaseOrb/_checkOrbPickups).
+    _startSpawnChase() {
+        this._clearOrbs();
+        this._spawnChaseQueue = this._pickRandomCandidates(SPAWN_CHASE_ORB_COUNT);
+        this._spawnNextChaseOrb();
+    }
+
+    // Pops and spawns the next queued Spawn Chase orb, if any. No-ops
+    // once the queue is empty (i.e. every orb has already been spawned
+    // and collected) — the caller checks orbsCollected against the total
+    // to know when that's the case.
+    _spawnNextChaseOrb() {
+        const next = this._spawnChaseQueue.shift();
+        if (!next) return;
+        this._createOrb(next.center, next.radius);
+    }
+
+    // Total orbs to collect for whichever collection-style mode
+    // (Time Trial / Spawn Chase) is currently active. 0 outside those.
+    _getOrbTotal() {
+        if (this.mode === GAME_MODE_TIME_TRIAL) return TIME_TRIAL_ORB_COUNT;
+        if (this.mode === GAME_MODE_SPAWN_CHASE) return SPAWN_CHASE_ORB_COUNT;
+        return 0;
+    }
+
+    _isCollectionMode(mode) {
+        return mode === GAME_MODE_TIME_TRIAL || mode === GAME_MODE_SPAWN_CHASE;
     }
 
     _checkOrbPickups(ballPosition) {
+        const orbTotal = this._getOrbTotal();
         for (let i = this.activeOrbs.length - 1; i >= 0; i--) {
             const orb = this.activeOrbs[i];
             if (ballPosition.distanceTo(orb.center) <= orb.radius + BALL_RADIUS) {
@@ -581,11 +694,16 @@ export class GameModeManager {
                 orb.mesh.material.dispose();
                 this.activeOrbs.splice(i, 1);
                 this.orbsCollected++;
-                this.ui.setOrbCount(this.orbsCollected, TIME_TRIAL_ORB_COUNT);
+                this.ui.setOrbCount(this.orbsCollected, orbTotal);
                 this.audioManager.playHotspotSound(0.35);
                 this._updateGlowColor();
 
-                if (this.orbsCollected === TIME_TRIAL_ORB_COUNT) {
+                // Spawn Chase: this pickup is what unlocks the next orb.
+                if (this.mode === GAME_MODE_SPAWN_CHASE && this.orbsCollected < orbTotal) {
+                    this._spawnNextChaseOrb();
+                }
+
+                if (this.orbsCollected === orbTotal) {
                     this.ui.flashMessage("Follow the path to the End Marker quickly");
                 }
             }
@@ -599,6 +717,7 @@ export class GameModeManager {
             orb.mesh.material.dispose();
         }
         this.activeOrbs.length = 0;
+        this._spawnChaseQueue.length = 0;
     }
 
     _formatTime(seconds) {

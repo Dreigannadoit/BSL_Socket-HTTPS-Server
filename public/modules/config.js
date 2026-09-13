@@ -426,27 +426,37 @@ export const isFogFollowPlayer = false;
 export const GAME_MODE_FREE_ROAM = "freeroam";
 export const GAME_MODE_SPEEDRUN = "speedrun";
 export const GAME_MODE_TIME_TRIAL = "timetrial";
+export const GAME_MODE_SPAWN_CHASE = "spawnchase";
 
 // ── Per-mode max speed ──
-export const MAX_SPEED_SPEEDRUN = 10.7;
+export const MAX_SPEED_SPEEDRUN = 11.7;
 export const MAX_SPEED_TIME_TRIAL = 8.6;
+export const MAX_SPEED_SPAWN_CHASE = 9.5;
 // Looked up by GameModeManager.selectMode() to push the right cap into
 // PlayerController/AudioManager whenever the player picks a mode.
 export const MAX_SPEED_BY_MODE = {
     [GAME_MODE_FREE_ROAM]: MAX_SPEED,
     [GAME_MODE_SPEEDRUN]: MAX_SPEED_SPEEDRUN,
     [GAME_MODE_TIME_TRIAL]: MAX_SPEED_TIME_TRIAL,
+    [GAME_MODE_SPAWN_CHASE]: MAX_SPEED_SPAWN_CHASE,
 };
 
 // The one hotspot that stays interactable (it doubles as the mode-select
-// menu) while Speedrun/Time Trial hide every other hotspot for the
-// duration of the run.
+// menu) while Speedrun/Time Trial/Spawn Chase hide every other hotspot for
+// the duration of the run.
 export const HOTSPOT_1_NAME = "Hotspot_1";
 
 export const TIME_TRIAL_DURATION = 140; // seconds on the Time Trial countdown
 export const TIME_TRIAL_ORB_COUNT = 27; // orbs randomly picked from "Collectables" each run
 export const ORB_COLOR = 0xffcc33;
 export const ORB_MIN_RADIUS = 0.15; // floor so a tiny/degenerate Sphere marker still reads as a pickup
+
+// Spawn Chase: same "find the glowing orb(s), then reach EndTrigger" shape
+// as Collection Time Trial, except its 10 orbs are dealt out one at a time
+// — the next orb only spawns once the current one is collected (see
+// GameModeManager._spawnNextChaseOrb).
+export const SPAWN_CHASE_DURATION = 360; // seconds on the Spawn Chase countdown (6 minutes)
+export const SPAWN_CHASE_ORB_COUNT = 10; // orbs randomly picked from "Collectables" each run, spawned one at a time
 
 // Padding (world units) added on top of the ball's own radius when
 // building the StartTrigger/EndTrigger bounding boxes, so a fast-moving

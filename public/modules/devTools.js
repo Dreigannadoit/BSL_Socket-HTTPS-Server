@@ -6,6 +6,7 @@ import {
     GAME_MODE_FREE_ROAM,
     GAME_MODE_SPEEDRUN,
     GAME_MODE_TIME_TRIAL,
+    GAME_MODE_SPAWN_CHASE,
 } from "./config.js";
 
 // How much time a "+30s" Time Trial cheat press adds to the live
@@ -33,6 +34,7 @@ const MODE_BUTTONS = [
     { mode: GAME_MODE_FREE_ROAM, label: "Free Roam" },
     { mode: GAME_MODE_SPEEDRUN, label: "Speedrun" },
     { mode: GAME_MODE_TIME_TRIAL, label: "Time Trial" },
+    { mode: GAME_MODE_SPAWN_CHASE, label: "Spawn Chase" },
 ];
 
 // A single dev-tool panel docked to the right-middle of the screen,
@@ -767,11 +769,13 @@ export class DevTools {
         return wrap;
     }
 
-    // ── Time Trial cheats ──
+    // ── Time Trial / Spawn Chase cheats (both are the same
+    // "collect N orbs, then reach EndTrigger" shape under the hood, so
+    // they share one cheat panel) ──
     _buildTimeTrialSection() {
         const wrap = document.createElement("div");
         wrap.style.cssText = "display: flex; flex-direction: column; gap: 4px;";
-        wrap.appendChild(this._sectionHeader("Time Trial"));
+        wrap.appendChild(this._sectionHeader("Time Trial / Spawn Chase"));
 
         const row = document.createElement("div");
         row.style.cssText = "display: flex; gap: 4px;";
@@ -780,7 +784,7 @@ export class DevTools {
         wrap.appendChild(row);
 
         const hint = document.createElement("div");
-        hint.textContent = "Only applies during an active Time Trial run";
+        hint.textContent = "Only applies during an active Time Trial or Spawn Chase run";
         hint.style.cssText = "opacity: 0.55; font-size: 10px;";
         wrap.appendChild(hint);
 
