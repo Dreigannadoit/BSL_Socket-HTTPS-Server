@@ -353,6 +353,25 @@ const HOTSPOT_CONTENT = {
                         <button data-mode="timetrial">Select</button>
                     </div>
 
+                    <div class="start_menu">
+                        <video
+                            data-b64-src="SpawnChase.mp4"
+                            data-b64-type="video/mp4"
+                            autoplay
+                            muted
+                            loop
+                            playsinline
+                            style="width: 100%; height: 55%; object-fit: cover;"
+                            ></video>
+                        <br>
+                        <h1>Spawn Chase</h1>
+                        <p>Collect all 10 orbs within 4:30, one at a time. Each orb appears after the previous one is captured. Stay alert and keep moving.</p>
+                        <i><b>(My fastest time was 4 minutes and 22 seconds)</b></i>
+                        <br>
+                        
+                        <button data-mode="spawnchase">Select</button>
+                    </div>
+
                     <div class="start_menu coming_soon">
                         <br>
                         <br>
@@ -367,22 +386,6 @@ const HOTSPOT_CONTENT = {
                         <p><b>Under Development</b></p>
                         <h1>2-Player rush</h1>
                         <p>Compete with your freinds by collecting 20 orbs scattered throughout the map. The firts one to collect and bring and reach the end checkpoint wins. </p>
-                    </div>
-
-                    <div class="start_menu coming_soon">
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <p><b>Coming Soon</b></p>
-                        <h1>Spawn Chase</h1>
-                        <p>Find and collect all 10 orbs as quickly as possible—one at a time within 6 minutes. Each orb only appears after the last has been captured, so stay alert and keep moving.</p>
                     </div>
 
                     <div class="start_menu coming_soon">
