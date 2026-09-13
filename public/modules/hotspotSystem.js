@@ -249,7 +249,7 @@ const HOTSPOT_CONTENT = {
                             ></video>
                         <br>
                         <h1>Collection Time Trial</h1>
-                        <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute and 30-second clock runs out.</p>
+                        <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute and 20-second clock runs out.</p>
                         <i><b>(My fastest time was 57.18 seconds)</b></i>
                         <br>
                         <button data-mode="timetrial">Select</button>

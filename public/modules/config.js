@@ -45,7 +45,7 @@ export const BG_MUSIC_FILES = {
 };
 // "Full" volume for whichever background track is currently active
 // (pre-duck, pre-fade-progress). Tune this to taste against the SFX mix.
-export const BG_MUSIC_VOLUME = 0.20;
+export const BG_MUSIC_VOLUME = 0.15;
 // Fraction of BG_MUSIC_VOLUME applied while a hotspot's H2-H5
 // Record_player narration is playing (see BackgroundMusicManager.setDucked
 // and hotspotSystem.js) — low enough that the narration stays clearly
