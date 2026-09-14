@@ -139,13 +139,9 @@ export class PlayerEntrance {
     // Starts the beam-drop -> spawn -> retract sequence at spawnPosition
     // (a THREE.Vector3, world space — the same point the ball itself was
     // placed at). Call once the level AND the ball model are both ready.
-    // `onComplete`, if given, fires once from _onFinished() (control handed
-    // back to the player) — used by multiplayerManager.js so the guest's
-    // client can tell the 2-Player Rush server "my entrance animation is
-    // done" at exactly the right moment, without polling `.state` itself.
     play(spawnPosition, onComplete = null) {
-        this._onComplete = onComplete;
         this.spawnPosition = spawnPosition.clone();
+        this.onComplete = onComplete;
 
         this.beamPivot.position.set(
             this.spawnPosition.x,
@@ -194,11 +190,7 @@ export class PlayerEntrance {
         this.beamPivot.visible = false;
         this.state = "done";
         if (this.player) this.player.setFrozen(false);
-        if (this._onComplete) {
-            const cb = this._onComplete;
-            this._onComplete = null;
-            cb();
-        }
+        if (this.onComplete) this.onComplete();
     }
 
     // Called every frame from the main loop. No-op once idle/done, so it's

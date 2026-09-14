@@ -8,18 +8,15 @@
     <link rel="stylesheet" href="/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        rel="stylesheet">
 </head>
 
 <body>
     <div class="page_title">
-        
+
     </div>
     <div id="hud">
-        <p>Loading Assets...</p>
-
-        <br>
-
         <svg width="424.444444444" height="520.740740741" viewBox="0 0 573 703" fill="none"
             xmlns="http://www.w3.org/2000/svg" xmlns:c2pa="http://c2pa.org/manifest">
             <metadata>
@@ -290,9 +287,21 @@
                     stroke="#FAFAF2" stroke-width="6" />
             </g>
         </svg>
+
         <br>
         <h1>A Drei Abmab© Project</h1>
     </div>
+
+    <div id="controll_totorial">
+        <div class="guide_icons">
+            <img src="./assets/images/arrows-951a5cf5.svg" alt="">
+            <p>or</p>
+            <img src="./assets/images/arrows-951a5cf6.svg" alt="">
+        </div>
+
+        <p>Use your Arrow keys (or WASD keys) to control the ball</p>
+    </div>
+
     <div id="fade-overlay"></div>
     <div id="hotspot-popup"></div>
 
@@ -306,6 +315,9 @@
 }
 </script>
     <script type="module" src="/game.js"></script>
+    <!-- Prompts the user to enter fullscreen ~3s after load if they aren't
+         already in it (see modules/fullscreenPrompt.js). -->
+    <script type="module" src="/modules/fullscreenPrompt.js"></script>
     <!-- Dev-only: auto-refreshes the page when scripts/dev-watch.js sees a
          saved html/css/js change. Harmless if that watcher isn't running. -->
     <script type="module" src="/modules/liveReload.js"></script>

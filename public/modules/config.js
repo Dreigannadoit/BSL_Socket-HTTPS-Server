@@ -1,16 +1,25 @@
 // ── Asset locations ──
+// public/assets/ is split into one subfolder per media type — keep new
+// assets sorted into the matching folder rather than dropped back into
+// assets/ directly. See resolveAssetUrl() below for filename -> folder
+// lookups where the call site handles a mix of types.
 export const ASSET_BASE = "/assets/";
-export const GLB_URL = ASSET_BASE + "maze_platform_high.glb";
+export const AUDIO_BASE = ASSET_BASE + "audio/";
+export const IMAGE_BASE = ASSET_BASE + "images/";
+export const VIDEO_BASE = ASSET_BASE + "video/";
+export const MODEL_BASE = ASSET_BASE + "models/";
+
+export const GLB_URL = MODEL_BASE + "maze_platform_high.glb";
 // Alternate world loaded on the about page (about.html/about.js) instead of
 // the normal maze — same loadLevel()/game logic, just a different GLB. See
 // main.js's startGame({ levelUrl }).
-export const ABOUT_GLB_URL = ASSET_BASE + "about_environment.glb";
-export const BALL_GLB_URL = ASSET_BASE + "ball.glb";
+export const ABOUT_GLB_URL = MODEL_BASE + "about_environment.glb";
+export const BALL_GLB_URL = MODEL_BASE + "ball.glb";
 // "Nebula Skybox 16k" by Jungle Jim (sketchfab.com/jungle_jim), CC-BY-4.0
 // (https://creativecommons.org/licenses/by/4.0/) — license requires
 // attribution wherever the game is shown (credits screen, README, etc.);
 // sky.js only wires up the asset, it doesn't render a credits UI.
-export const SKY_GLB_URL = ASSET_BASE + "nebula_skybox_16k.glb";
+export const SKY_GLB_URL = MODEL_BASE + "nebula_skybox_16k.glb";
 
 export const SOUND_FILES = {
     bounce1: "bounce1.mp3",
@@ -24,11 +33,64 @@ export const SOUND_FILES = {
     warp: "warp_sfx.mp3",
 };
 
+// ── Background music ──
+// Resolved via resolveAssetUrl() below (".mp3" -> AUDIO_BASE + its ".b64"
+// sidecar, same binaryAssetLoader pipeline as everything else) rather than
+// SOUND_FILES' own map — these loop continuously in the background instead
+// of being one-shot/looping SFX layered by AudioManager.
+export const BG_MUSIC_FILES = {
+    home: "home.mp3",
+    about: "about.mp3",
+    rush: "Rush.mp3",
+};
+// "Full" volume for whichever background track is currently active
+// (pre-duck, pre-fade-progress). Tune this to taste against the SFX mix.
+export const BG_MUSIC_VOLUME = 0.15;
+// Fraction of BG_MUSIC_VOLUME applied while a hotspot's H2-H5
+// Record_player narration is playing (see BackgroundMusicManager.setDucked
+// and hotspotSystem.js) — low enough that the narration stays clearly
+// forward in the mix without cutting the music out entirely.
+export const BG_MUSIC_DUCK_LEVEL = 0.25;
+// Crossfade durations (seconds). Home -> Rush is a quick swap the instant
+// a timed run begins; Rush -> Home eases back out once the run ends.
+export const BG_MUSIC_FAST_FADE = 0.6;
+export const BG_MUSIC_SLOW_FADE = 3.0;
+// How long a duck engage/disengage takes to reach its target level —
+// smoothed rather than snapped so it doesn't click/pop when H2-H5 narration
+// starts or stops.
+export const BG_MUSIC_DUCK_FADE = 0.35;
+
+// Maps a bare filename's extension to its subfolder under assets/. Used by
+// resolveAssetUrl() for call sites (like hotspotSystem.js's data-b64-src
+// scan) that resolve a mix of media types generically rather than knowing
+// the type up front.
+const EXT_TO_ASSET_BASE = {
+    mp3: AUDIO_BASE,
+    wav: AUDIO_BASE,
+    png: IMAGE_BASE,
+    jpg: IMAGE_BASE,
+    jpeg: IMAGE_BASE,
+    svg: IMAGE_BASE,
+    mp4: VIDEO_BASE,
+    webm: VIDEO_BASE,
+    glb: MODEL_BASE,
+    gltf: MODEL_BASE,
+};
+
+// Resolves a bare filename (e.g. "FreeRoam.png") to its full URL under the
+// correct assets/ subfolder, based on extension. Falls back to ASSET_BASE
+// (the assets/ root) for anything unrecognized.
+export function resolveAssetUrl(filename) {
+    const ext = filename.slice(filename.lastIndexOf(".") + 1).toLowerCase();
+    const base = EXT_TO_ASSET_BASE[ext] || ASSET_BASE;
+    return base + filename;
+}
+
 // ── Ball ──
 export const BALL_RADIUS = 0.35;
 
 // ── Movement ──
-export const MAX_SPEED = 7.3; // Free Roam / default
+export const MAX_SPEED = 5.5; // Free Roam / default
 export const ACCEL = 15;
 export const DECEL_RATE = 1.5;
 // Lower = smoother/slower direction changes while moving. Decoupled from
@@ -122,7 +184,7 @@ export const REVERSAL_MIN_SPEED = 1.2;       // skids can kick in at lower speed
 
 // ── Camera / skid feedback ──
 export const CAMERA_OFFSET = { x: 4.2, y: 6.5, z: 4.2 };
-// export const CAMERA_OFFSET = { x: 16.2, y: 35, z: 16.2 };
+// export const CAMERA_OFFSET = { x: 16.2, y: 75, z: 16.2 };
 export const SKID_CAMERA_ROLL = 0.045;        // radians of camera roll at full skid intensity
 export const SKID_CAMERA_ROLL_SMOOTH = 0.08;  // eases the roll in/out instead of snapping
 
@@ -364,27 +426,37 @@ export const isFogFollowPlayer = false;
 export const GAME_MODE_FREE_ROAM = "freeroam";
 export const GAME_MODE_SPEEDRUN = "speedrun";
 export const GAME_MODE_TIME_TRIAL = "timetrial";
+export const GAME_MODE_SPAWN_CHASE = "spawnchase";
 
 // ── Per-mode max speed ──
-export const MAX_SPEED_SPEEDRUN = 10.7;
+export const MAX_SPEED_SPEEDRUN = 11.7;
 export const MAX_SPEED_TIME_TRIAL = 8.6;
+export const MAX_SPEED_SPAWN_CHASE = 9.5;
 // Looked up by GameModeManager.selectMode() to push the right cap into
 // PlayerController/AudioManager whenever the player picks a mode.
 export const MAX_SPEED_BY_MODE = {
     [GAME_MODE_FREE_ROAM]: MAX_SPEED,
     [GAME_MODE_SPEEDRUN]: MAX_SPEED_SPEEDRUN,
     [GAME_MODE_TIME_TRIAL]: MAX_SPEED_TIME_TRIAL,
+    [GAME_MODE_SPAWN_CHASE]: MAX_SPEED_SPAWN_CHASE,
 };
 
 // The one hotspot that stays interactable (it doubles as the mode-select
-// menu) while Speedrun/Time Trial hide every other hotspot for the
-// duration of the run.
+// menu) while Speedrun/Time Trial/Spawn Chase hide every other hotspot for
+// the duration of the run.
 export const HOTSPOT_1_NAME = "Hotspot_1";
 
 export const TIME_TRIAL_DURATION = 140; // seconds on the Time Trial countdown
 export const TIME_TRIAL_ORB_COUNT = 27; // orbs randomly picked from "Collectables" each run
 export const ORB_COLOR = 0xffcc33;
 export const ORB_MIN_RADIUS = 0.15; // floor so a tiny/degenerate Sphere marker still reads as a pickup
+
+// Spawn Chase: same "find the glowing orb(s), then reach EndTrigger" shape
+// as Collection Time Trial, except its 10 orbs are dealt out one at a time
+// — the next orb only spawns once the current one is collected (see
+// GameModeManager._spawnNextChaseOrb).
+export const SPAWN_CHASE_DURATION = 270; // seconds on the Spawn Chase countdown (4 min and 30 sec minutes)
+export const SPAWN_CHASE_ORB_COUNT = 10; // orbs randomly picked from "Collectables" each run, spawned one at a time
 
 // Padding (world units) added on top of the ball's own radius when
 // building the StartTrigger/EndTrigger bounding boxes, so a fast-moving
@@ -658,7 +730,11 @@ export const ROUTE_TRIGGER_EXIT_BUFFER = 0.25;
 // alongside the BSL static file server; both browsers are thin clients of
 // it. This block is just the shared tuning/identity constants both the
 // client UI and multiplayerManager.js read from.
-export const MP_DEFAULT_PORT = 5051; // must match server/multiplayerServer.js's default
+//
+// Port 5150 — deliberately NOT 5050 (BSL's own static server) or 5051
+// (scripts/dev-watch.js's live-reload SSE server, LIVERELOAD_PORT) since
+// both of those are already spoken for on the host's machine.
+export const MP_DEFAULT_PORT = 5150; // must match server/multiplayerServer.js's default
 export const MP_TOTAL_ROUNDS = 3;
 export const MP_ORB_COUNTS_BY_ROUND = [10, 20, 30];
 export const MP_COUNTDOWN_SECONDS = 5;

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-    ASSET_BASE,
+    AUDIO_BASE,
     SOUND_FILES,
     MAX_SPEED,
     ENGINE_MIN_GAIN,
@@ -63,7 +63,7 @@ export class AudioManager {
     }
 
     async _loadSound(name, file) {
-        const arrayBuffer = await fetchBinaryAsset(ASSET_BASE + file);
+        const arrayBuffer = await fetchBinaryAsset(AUDIO_BASE + file);
         this.soundBuffers[name] = await this.audioCtx.decodeAudioData(arrayBuffer);
     }
 

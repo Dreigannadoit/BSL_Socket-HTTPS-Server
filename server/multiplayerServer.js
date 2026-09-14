@@ -10,12 +10,16 @@
 
     Run on the HOST's machine only:
         npm install
-        node server/multiplayerServer.js            (defaults to port 5051)
+        node server/multiplayerServer.js            (defaults to port 5150)
         node server/multiplayerServer.js 6000        (custom port)
 
-    The host's own browser connects to ws://localhost:5051 (or the host's
+    The host's own browser connects to ws://localhost:5150 (or the host's
     LAN IP — same as BSL, see the earlier two-PC LAN instructions). The
-    guest's browser connects to ws://<host-LAN-IP>:5051.
+    guest's browser connects to ws://<host-LAN-IP>:5150.
+
+    Port 5150 is deliberately NOT 5050 (BSL's own static file server) or
+    5051 (scripts/dev-watch.js's live-reload SSE server) — both already in
+    use on the host's machine.
 
     This server is the single source of truth for: who is host/guest, round
     number, orb positions + which are collected, hotspot assignments each
@@ -34,7 +38,7 @@
 
 const { WebSocketServer } = require("ws");
 
-const PORT = Number(process.argv[2]) || 5051;
+const PORT = Number(process.argv[2]) || 5150;
 const TOTAL_ROUNDS = 3;
 const ORB_COUNTS_BY_ROUND = [10, 20, 30]; // index 0 = round 1
 const COUNTDOWN_SECONDS = 5;

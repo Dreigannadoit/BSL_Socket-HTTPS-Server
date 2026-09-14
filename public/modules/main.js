@@ -5,6 +5,8 @@ import { createLighting } from "./lighting.js";
 import { createPhysicsWorld } from "./physicsWorld.js";
 import { createBall } from "./ball.js";
 import { AudioManager } from "./audioManager.js";
+import { BackgroundMusicManager } from "./backgroundMusic.js";
+import { MusicToggleUI } from "./musicToggleUI.js";
 import { BloomRenderer } from "./bloomRenderer.js";
 import { GlowPath } from "./glowPath.js";
 import { PlayerFog } from "./fog.js";
@@ -32,7 +34,7 @@ import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL, GAME_MODE_SPEEDRUN } from
 // modes, dev tools, and the level itself. Used by both the main game
 // (game.js, default maze GLB) and the about page (about.js), which is
 // identical in every way except which world it loads — see `levelUrl`.
-export function startGame({ levelUrl = GLB_URL } = {}) {
+export function startGame({ levelUrl = GLB_URL, bgMusicTrack = "home" } = {}) {
     // ── bfcache guard ──
     // Many browsers (Safari/Firefox always, Chrome often) restore a page
     // from the back-forward cache on Back/Forward navigation instead of
@@ -102,6 +104,19 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     // ── Audio ──
     const audioManager = new AudioManager();
 
+    // ── Background music ──
+    // Home page opens on "home", the about page passes bgMusicTrack:
+    // "about" (see about.js) — GameModeManager crossfades home <-> "rush"
+    // around a timed run, and hotspotSystem.js ducks whichever track is
+    // playing while an H2-H5 narration clip is active. See
+    // backgroundMusic.js.
+    const backgroundMusic = new BackgroundMusicManager(bgMusicTrack);
+
+    // ── Music on/off (top-right) ──
+    // Only affects backgroundMusic above — SFX and hotspot narration are
+    // untouched. See musicToggleUI.js.
+    const musicToggleUI = new MusicToggleUI(backgroundMusic);
+
     // ── Neon glow path ──
     const glowPath = new GlowPath();
 
@@ -141,6 +156,9 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     const hotspotSystem = new HotspotSystem(hotspotPopup, () => player.stick(HOTSPOT_STUCK_DURATION), {
         onSelectMode: (mode) => gameModeManager.selectMode(mode),
         getCurrentMode: () => gameModeManager.getMode(),
+        // Ducks/restores the background music while an H2-H5 narration
+        // clip plays — see BackgroundMusicManager.setDucked.
+        onNarrationStateChange: (isPlaying) => backgroundMusic.setDucked(isPlaying),
         // "2-Player rush" deliberately bypasses onSelectMode above — see
         // hotspotSystem.js's comment on that button and multiplayerManager.js
         // for why (StartTrigger has to stay blocking/Hotspot_1 has to come
@@ -158,6 +176,7 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
         respawnSystem,
         hotspotSystem,
         audioManager,
+        backgroundMusic,
         ui: gameModeUI,
         glowPath,
     });
@@ -233,17 +252,27 @@ export function startGame({ levelUrl = GLB_URL } = {}) {
     let levelAssetReady = false;
     let levelSpawnPos = null;
 
+    // Reveals the "use your arrow keys / WASD" hint (#controll_totorial,
+    // see index.html/about.html) the moment the world is fully loaded
+    // AND the player actually regains control — not before. controls.js
+    // takes it from here and dismisses it on the first movement key press.
+    function showControlTutorial() {
+        const tutorial = document.getElementById("controll_totorial");
+        if (tutorial) tutorial.classList.add("show");
+    }
+
     function tryRevealPlayer() {
         if (!ballAssetReady || !levelAssetReady) return;
         loadingScreen.hide();
         if (levelSpawnPos) {
-            playerEntrance.play(levelSpawnPos);
+            playerEntrance.play(levelSpawnPos, showControlTutorial);
         } else {
             // Level failed to load — nothing sensible to play the beam
             // at, so just reveal the player where it is rather than
             // leaving it invisible/frozen forever.
             ballMesh.visible = true;
             player.setFrozen(false);
+            showControlTutorial();
         }
     }
 

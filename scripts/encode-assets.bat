@@ -2,10 +2,18 @@
 REM Regenerates the ".b64" sidecar files under public\assets\ using
 REM certutil, which ships with Windows -- no Node/npm/Python needed.
 REM
+REM assets/ is split into one subfolder per media type:
+REM   public\assets\audio\   (.mp3)
+REM   public\assets\images\  (.png/.jpg/.jpeg)
+REM   public\assets\video\   (.mp4)
+REM   public\assets\models\  (.glb)
+REM This script walks all four with `for /r`, so a new file just needs to be
+REM dropped in the matching subfolder -- nothing here needs editing.
+REM
 REM Run this whenever you add or replace a binary asset (mp3/mp4/glb/png)
 REM that gets fetched at runtime by public/modules/*.js. Assets referenced
-REM only from static HTML (like about.html's Hotspot_2.png) are inlined
-REM as data URIs instead and don't need a .b64 file -- see about.html.
+REM only from static HTML are inlined as data URIs instead and don't need a
+REM .b64 file -- see about.html.
 REM
 REM Usage:
 REM   scripts\encode-assets.bat
@@ -18,16 +26,17 @@ REM public/modules/binaryAssetLoader.js fetches and decodes it back to
 REM bytes in the browser.
 
 setlocal enabledelayedexpansion
-cd /d "%~dp0\..\public\assets"
+set ASSETS_DIR=%~dp0\..\public\assets
+set EXTS=*.mp3 *.mp4 *.glb *.png *.jpg *.jpeg
 
-set FILES=bounce1.mp3 bounce2.mp3 bounce3.mp3 bounce4.mp3 bounce5.mp3 engine.mp3 hotspot.mp3 rolling.mp3 ball.glb maze_platform_high.glb FreeRoam.png Speedrun.mp4 TimeTrial.mp4 Hotspot_2.png Hotspot_3.png Hotspot_Head_3.png IconMe.svg Hotspot_4.png Hotspot_Head_4.jpg Hotspot_5.png Hotspot_Head_5.jpg Road_Block.jpg warp_sfx.mp3 H2.m4a H3.m4a H4.m4a H5.m4a
-
-for %%F in (%FILES%) do (
-    if exist "%%F" (
-        echo Encoding %%F ...
-        certutil -encode "%%F" "%%F.b64" >nul
+for %%D in (audio images video models) do (
+    if exist "%ASSETS_DIR%\%%D" (
+        for /r "%ASSETS_DIR%\%%D" %%F in (%EXTS%) do (
+            echo Encoding %%~nx%%F ...
+            certutil -encode "%%F" "%%F.b64" >nul
+        )
     ) else (
-        echo SKIP: %%F not found in public\assets\
+        echo SKIP: %ASSETS_DIR%\%%D does not exist
     )
 )
 

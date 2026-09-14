@@ -8,7 +8,7 @@
 // If they match: readFile() is fine, and the truncation is happening
 // later, in socket_write() on the server side.
 
-var target = "public/assets/bounce5.mp3"; // smallest binary asset, 16 KB
+var target = "public/assets/audio/bounce5.mp3"; // smallest binary asset, 16 KB
 
 var onDisk = fileSize(target);
 print("On-disk size (fileSize):   " + onDisk + " bytes\n");

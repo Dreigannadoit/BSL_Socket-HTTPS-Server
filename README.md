@@ -185,7 +185,7 @@ With the server running, open a browser and try the following endpoints:
 | `http://localhost:5050/about` | Loads the about page (`public/about.html`) |
 | `http://localhost:5050/style.css`, `/game.js` | Served directly from `public/` with the correct `Content-Type` |
 | `http://localhost:5050/modules/*` | Any file under `public/modules/` (e.g. `/modules/sky.js`) |
-| `http://localhost:5050/assets/*` | Any file under `public/assets/` (models, audio, images) |
+| `http://localhost:5050/assets/*` | Any file under `public/assets/`, split into `audio/`, `images/`, `video/`, and `models/` subfolders |
 | `http://localhost:5050/anything-else` | Any unrecognized path returns `404 Not Found` with `public/404.html` |
 
 Once `/home` loads, use **WASD** or the **arrow keys** to roll the ball
@@ -257,15 +257,17 @@ original file is.
 
 1. **Encoding (offline, before the server ever runs):**
    `scripts\encode-assets.bat` runs Windows' built-in `certutil -encode`
-   against each binary file under `public/assets/` (e.g.
-   `bounce1.mp3` → `bounce1.mp3.b64`), and the same conversion happens
-   automatically via `scripts/dev-watch.js` when running `npm run dev`.
-   No BSL code is involved in this step — the `.b64` files are just
-   ordinary text files sitting next to their originals in `public/assets/`,
-   ready for `http.bzg` to serve like any other static file. `about.html`'s
-   one image is handled differently: it's inlined directly as a base64
-   `data:` URI in the HTML itself, since that page has no JavaScript to
-   fetch and decode a separate sidecar file.
+   against each binary file under `public/assets/audio/`,
+   `public/assets/images/`, `public/assets/video/`, and
+   `public/assets/models/` (e.g. `audio/bounce1.mp3` →
+   `audio/bounce1.mp3.b64`), and the same conversion happens automatically
+   via `scripts/dev-watch.js` when running `npm run dev`. No BSL code is
+   involved in this step — the `.b64` files are just ordinary text files
+   sitting next to their originals in each subfolder, ready for `http.bzg`
+   to serve like any other static file. Any asset referenced only from
+   static HTML is inlined directly as a base64 `data:` URI in the HTML
+   itself instead, since a static page has no JavaScript to fetch and
+   decode a separate sidecar file.
 2. **Serving:** `http.bzg` serves a `.b64` file exactly the way it serves
    any other static asset — `readFile()` + `socket_write()` — except it
    sends `Content-Type: text/plain` for it (see `getContentType()`),
@@ -286,7 +288,7 @@ truncating the way a raw binary request would.
 A small standalone script used to isolate *where* binary data was being
 lost. It compares a file's on-disk size (`fileSize()`) against how many
 bytes actually made it into memory after `readFile()` (`sizeof()`) for
-`public/assets/bounce5.mp3`. The result — 4 bytes read instead of
+`public/assets/audio/bounce5.mp3`. The result — 4 bytes read instead of
 12,935 — confirmed that `readFile()` itself was the source of the
 truncation, not `socket_write()`, which led directly to the `.b64`
 sidecar workaround used throughout the app.
