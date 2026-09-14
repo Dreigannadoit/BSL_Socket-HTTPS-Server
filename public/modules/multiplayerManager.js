@@ -521,7 +521,7 @@ export class MultiplayerManager {
                 const dy = ballPosition.y - orb.y;
                 const dz = ballPosition.z - orb.z;
                 const distSq = dx * dx + dy * dy + dz * dz;
-                const pickupRadius = BALL_RADIUS + 0.22;
+                const pickupRadius = BALL_RADIUS + 0.35;
                 if (distSq <= pickupRadius * pickupRadius) {
                     this.client.send("orb_collected", { orbId });
                 }
