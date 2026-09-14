@@ -175,6 +175,23 @@ export class RouteTriggerSystem {
         this.activeTrigger = null;
     }
 
+    // 2-Player Rush host lockdown (see multiplayerManager.js): while
+    // active===false every trigger is hidden from the scene AND update()
+    // becomes a no-op (reusing the same `locked` flag PlayerExit's
+    // navigation-in-progress case already relies on), so the host can't
+    // roll onto About/Github/LinkedIn/etc. and leave the page mid-match.
+    // Restored verbatim on "Exit 2-Player Rush".
+    setActive(active) {
+        this.locked = !active;
+        for (const trigger of this.triggers) {
+            if (trigger.node) trigger.node.visible = active;
+        }
+        if (!active && this.activeTrigger) {
+            this.ui.hide();
+            this.activeTrigger = null;
+        }
+    }
+
     _navigate(trigger) {
         if (this.locked) return;
         this.locked = true;

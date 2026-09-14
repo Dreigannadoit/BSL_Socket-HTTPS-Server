@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER, HOTSPOT_ENTER_RADIUS, HOTSPOT_EXIT_RADIUS, AUDIO_BASE, resolveAssetUrl } from "./config.js";
+import { HOTSPOT_TRIGGER_RADIUS, GLOW_COLOR, BLOOM_LAYER, HOTSPOT_ENTER_RADIUS, HOTSPOT_EXIT_RADIUS, ASSET_BASE } from "./config.js";
 import { fetchAssetBlobURL } from "./binaryAssetLoader.js";
 
 // Shared, module-level narration state — deliberately NOT scoped to a
@@ -12,7 +12,6 @@ const narration = {
     audio: null,       // the currently loaded/playing <audio>, or null
     hotspotName: null, // which Hotspot_N node "owns" it
     cancelBtn: null,   // lazily-created floating stop button (bottom-left)
-    progress: null,    // lazily-created { container, fill, timeText } (middle-bottom)
 };
 
 // Tracks whichever hotspot the ball is currently inside, kept in sync by
@@ -21,18 +20,12 @@ const narration = {
 // clip's owner, this is where the player actually is right now.
 let currentActiveHotspotName = null;
 
-// Set by HotspotSystem's constructor from context.onNarrationStateChange
-// (main.js wires this to BackgroundMusicManager.setDucked) — module-level
-// since narration playback itself is module-level state, not per-instance.
-// Only one HotspotSystem is ever constructed per page, so this is safe.
-let narrationChangeCallback = null;
-
 function getCancelButton() {
     if (narration.cancelBtn) return narration.cancelBtn;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.id = "narration-cancel-button";
-    btn.textContent = "Stop Narration";
+    btn.textContent = "Stop Audio";
     Object.assign(btn.style, {
         position: "fixed",
         left: "20px",
@@ -72,114 +65,6 @@ function refreshCancelButtonVisibility() {
     getCancelButton().style.display = shouldShow ? "flex" : "none";
 }
 
-// Lazily builds the middle-bottom "duration tracker": a time readout
-// ("0:12 / 1:03") above a grey track with a neon-blue fill bar showing how
-// far through the current narration clip playback is.
-function getProgressBar() {
-    if (narration.progress) return narration.progress;
-
-    const container = document.createElement("div");
-    container.id = "narration-progress";
-    Object.assign(container.style, {
-        position: "fixed",
-        left: "50%",
-        bottom: "24px",
-        transform: "translateX(-50%)",
-        zIndex: "1000",
-        display: "none",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: "6px",
-        fontFamily: "inherit",
-        pointerEvents: "none", // purely informational, never blocks clicks
-    });
-
-    const timeText = document.createElement("div");
-    Object.assign(timeText.style, {
-        color: "#fff",
-        fontSize: "13px",
-        fontWeight: "600",
-        letterSpacing: "0.02em",
-        textShadow: "0 1px 4px rgba(0,0,0,0.7)",
-    });
-    timeText.textContent = "0:00 / 0:00";
-
-    const track = document.createElement("div");
-    Object.assign(track.style, {
-        width: "min(320px, 70vw)",
-        height: "6px",
-        borderRadius: "999px",
-        background: "rgba(140,140,140,0.55)", // grey — full clip length
-        overflow: "hidden",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-    });
-
-    const fill = document.createElement("div");
-    Object.assign(fill.style, {
-        height: "100%",
-        width: "0%",
-        borderRadius: "999px",
-        background: "#00d9ff", // neon blue — current progress
-        boxShadow: "0 0 8px 1px rgba(0,217,255,0.85)",
-    });
-    track.appendChild(fill);
-
-    container.appendChild(timeText);
-    container.appendChild(track);
-    document.body.appendChild(container);
-
-    narration.progress = { container, fill, timeText };
-    return narration.progress;
-}
-
-function formatNarrationTime(seconds) {
-    if (!isFinite(seconds) || seconds < 0) seconds = 0;
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-// Updates the time text + fill-bar width from the current narration
-// audio's currentTime/duration — called on "timeupdate" and
-// "loadedmetadata" (duration is unknown until metadata loads) while a
-// clip is active.
-function updateNarrationProgress() {
-    const audio = narration.audio;
-    if (!audio) return;
-    const { fill, timeText } = getProgressBar();
-    const duration = isFinite(audio.duration) ? audio.duration : 0;
-    const current = audio.currentTime || 0;
-    const pct = duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
-    fill.style.width = pct + "%";
-    timeText.textContent = `${formatNarrationTime(current)} / ${formatNarrationTime(duration)}`;
-}
-
-// Visible any time a narration clip is loaded (playing OR paused) — unlike
-// the cancel button, this isn't tied to hotspot proximity, so it shows
-// wherever the player is on the map.
-function refreshProgressBarVisibility() {
-    if (narration.audio) {
-        getProgressBar().container.style.display = "flex";
-        updateNarrationProgress();
-    } else if (narration.progress) {
-        narration.progress.container.style.display = "none";
-    }
-}
-
-// Single choke point for "narration playback state may have changed" —
-// call this instead of refreshCancelButtonVisibility() directly whenever
-// narration.audio starts, pauses, resumes, ends, or is cleared. Updates
-// the floating cancel button AND tells main.js (via the
-// onNarrationStateChange context callback) whether to duck the background
-// music, so the two never drift out of sync.
-function onNarrationChanged() {
-    refreshCancelButtonVisibility();
-    refreshProgressBarVisibility();
-    if (narrationChangeCallback) {
-        narrationChangeCallback(!!narration.audio && !narration.audio.paused);
-    }
-}
-
 // Fully stops and clears whatever narration clip is currently active —
 // used by the floating cancel button, and internally whenever a different
 // hotspot's clip is about to start.
@@ -190,11 +75,11 @@ function stopNarration() {
     }
     narration.audio = null;
     narration.hotspotName = null;
-    onNarrationChanged();
+    refreshCancelButtonVisibility();
 }
 
 // Wires a popup's ".Record_player" button (see Hotspot_2-5 below) to fetch
-// and play its narration clip — e.g. "H2.mp3" -> AUDIO_BASE + "H2.mp3.b64",
+// and play its narration clip — e.g. "H2.mp3" -> ASSET_BASE + "H2.mp3.b64",
 // same base64-sidecar pipeline as the images/videos above.
 //
 // Behavior:
@@ -221,7 +106,7 @@ function setupRecordPlayer(popupEl, file, hotspotName) {
             } else {
                 narration.audio.pause();
             }
-            onNarrationChanged();
+            refreshCancelButtonVisibility();
             return;
         }
 
@@ -234,21 +119,19 @@ function setupRecordPlayer(popupEl, file, hotspotName) {
         loading = true;
         btn.disabled = true;
         try {
-            const blobUrl = await fetchAssetBlobURL(AUDIO_BASE + file, "audio/mpeg");
+            const blobUrl = await fetchAssetBlobURL(ASSET_BASE + file, "audio/mpeg");
             const audio = new Audio(blobUrl);
             narration.audio = audio;
             narration.hotspotName = hotspotName;
-            audio.addEventListener("timeupdate", updateNarrationProgress);
-            audio.addEventListener("loadedmetadata", updateNarrationProgress);
             audio.addEventListener("ended", () => {
                 if (narration.audio === audio) {
                     narration.audio = null;
                     narration.hotspotName = null;
                 }
-                onNarrationChanged();
+                refreshCancelButtonVisibility();
             });
             await audio.play();
-            onNarrationChanged();
+            refreshCancelButtonVisibility();
         } catch (err) {
             console.error(`Failed to load hotspot audio ${file}:`, err);
         } finally {
@@ -347,29 +230,22 @@ const HOTSPOT_CONTENT = {
                             ></video>
                         <br>
                         <h1>Collection Time Trial</h1>
-                        <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute and 20-second clock runs out.</p>
+                        <p>Collect all 20 glowing orbs and reach the End marker before the 2-minute and 30-second clock runs out.</p>
                         <i><b>(My fastest time was 57.18 seconds)</b></i>
                         <br>
                         <button data-mode="timetrial">Select</button>
                     </div>
 
-                    <div class="start_menu">
-                        <video
-                            data-b64-src="SpawnChase.mp4"
-                            data-b64-type="video/mp4"
-                            autoplay
-                            muted
-                            loop
-                            playsinline
-                            style="width: 100%; height: 55%; object-fit: cover;"
-                            ></video>
-                        <br>
-                        <h1>Spawn Chase</h1>
-                        <p>Collect all 10 orbs within 4:30, one at a time. Each orb appears after the previous one is captured. Stay alert and keep moving.</p>
-                        <i><b>(My fastest time was 4 minutes and 22 seconds)</b></i>
-                        <br>
-                        
-                        <button data-mode="spawnchase">Select</button>
+                    <div class="start_menu" data-slide="two_player_rush">
+                        <div class="two_player_rush_body">
+                            <br>
+                            <br>
+                            <h1>2-Player Rush</h1>
+                            <p>Race a friend across 3 rounds of orb collection (10 / 20 / 30 orbs). Host from this
+                                machine, or join someone else's game over the network.</p>
+                            <br>
+                            <button data-tworush-select>Select</button>
+                        </div>
                     </div>
 
                     <div class="start_menu coming_soon">
@@ -383,9 +259,9 @@ const HOTSPOT_CONTENT = {
                         <br>
                         <br>
                         <br>
-                        <p><b>Under Development</b></p>
-                        <h1>2-Player rush</h1>
-                        <p>Compete with your freinds by collecting 20 orbs scattered throughout the map. The firts one to collect and bring and reach the end checkpoint wins. </p>
+                        <p><b>Coming Soon</b></p>
+                        <h1>Spawn Chase</h1>
+                        <p>Find and collect all 10 orbs as quickly as possible—one at a time within 6 minutes. Each orb only appears after the last has been captured, so stay alert and keep moving.</p>
                     </div>
 
                     <div class="start_menu coming_soon">
@@ -425,7 +301,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(resolveAssetUrl(file), type)
+                fetchAssetBlobURL(ASSET_BASE + file, type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -461,6 +337,25 @@ const HOTSPOT_CONTENT = {
                     if (context.onSelectMode) context.onSelectMode(btn.dataset.mode);
                 });
             });
+
+            // 2-Player Rush deliberately does NOT go through
+            // context.onSelectMode/GameModeManager — selecting a normal
+            // mode makes StartTrigger passable immediately (see
+            // GameModeManager.selectMode()), but the host needs to stay
+            // penned in the spawn room until a guest actually joins. So
+            // its "Select" button hands the click straight to
+            // MultiplayerManager (wired in main.js as
+            // context.onOpenTwoPlayerRush), which takes over rendering
+            // *inside* this same slide (host/join sub-screen) rather than
+            // changing the popup's overall content or touching
+            // StartTrigger at all.
+            const twoPlayerRushBtn = popupEl.querySelector("[data-tworush-select]");
+            if (twoPlayerRushBtn) {
+                const body = popupEl.querySelector(".two_player_rush_body");
+                twoPlayerRushBtn.addEventListener("click", () => {
+                    if (context.onOpenTwoPlayerRush) context.onOpenTwoPlayerRush(body);
+                });
+            }
         },
     },
     Hotspot_2: {
@@ -527,7 +422,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(resolveAssetUrl(file), type)
+                fetchAssetBlobURL(ASSET_BASE + file, type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -620,7 +515,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(resolveAssetUrl(file), type)
+                fetchAssetBlobURL(ASSET_BASE + file, type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -709,7 +604,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(resolveAssetUrl(file), type)
+                fetchAssetBlobURL(ASSET_BASE + file, type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -797,7 +692,7 @@ const HOTSPOT_CONTENT = {
             popupEl.querySelectorAll("[data-b64-src]").forEach((el) => {
                 const file = el.getAttribute("data-b64-src");
                 const type = el.getAttribute("data-b64-type");
-                fetchAssetBlobURL(resolveAssetUrl(file), type)
+                fetchAssetBlobURL(ASSET_BASE + file, type)
                     .then((blobUrl) => {
                         el.src = blobUrl;
                         if (el.tagName === "VIDEO") el.load();
@@ -885,9 +780,6 @@ export class HotspotSystem {
         this.popupEl = popupEl;
         this.onEnter = onEnter;
         this.context = context;
-        // See the module-level `narrationChangeCallback` declaration above
-        // — wired to BackgroundMusicManager.setDucked by main.js.
-        narrationChangeCallback = context.onNarrationStateChange || null;
         this.hotspots = []; // { name, position, content, node, hidden }
         this.activeHotspot = null; // currently-inside hotspot, or null
         this.glowMaterials = []; // pulsed each frame, same pattern as GlowPath
@@ -1015,6 +907,20 @@ export class HotspotSystem {
             hotspot.hidden = false;
             if (hotspot.node) hotspot.node.visible = true;
         }
+    }
+
+    // Hides/shows exactly one named hotspot, leaving every other one alone
+    // — unlike hideAllExcept()/restoreAll() above, which are all-or-nothing
+    // (used by GameModeManager's Speedrun/Time Trial lockdown). 2-Player
+    // Rush only ever needs to pull Hotspot_1 itself out of play (see
+    // multiplayerManager.js's host lockdown) while leaving Hotspot_2..5
+    // exactly as they were.
+    setHotspotHidden(name, hidden) {
+        const hotspot = this.hotspots.find((h) => h.name === name);
+        if (!hotspot) return;
+        hotspot.hidden = hidden;
+        if (hotspot.node) hotspot.node.visible = !hidden;
+        if (hidden && this.activeHotspot === hotspot) this._exit();
     }
 
     // Dev-tool hook: fires a hotspot's popup by name without requiring the

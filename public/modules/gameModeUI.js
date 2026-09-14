@@ -2,10 +2,9 @@ const MODE_LABELS = {
     freeroam: "Free Roam",
     speedrun: "Speedrun",
     timetrial: "Collection Time Trial",
-    spawnchase: "Spawn Chase",
 };
 
-// A small, self-contained HUD overlay for the selectable game modes:
+// A small, self-contained HUD overlay for the three selectable game modes:
 // a persistent mode/timer readout (now split into two standalone chips —
 // modeLabel and statLine) and a centered modal popup reused for every
 // result/confirmation dialog (Free Roam's "end run?" prompt, Speedrun's
@@ -13,9 +12,7 @@ const MODE_LABELS = {
 //
 // Everything here is built and styled in JS rather than depending on the
 // page's external stylesheet, so it renders correctly regardless of what's
-// in style.css. (Free Roam's "end run?" prompt, Speedrun's finish time,
-// Time Trial's and Spawn Chase's success/fail screens all reuse the same
-// popup via showPopup().)
+// in style.css.
 export class GameModeUI {
     constructor() {
         this._timerText = "";
