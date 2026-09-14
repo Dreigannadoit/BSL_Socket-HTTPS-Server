@@ -7,8 +7,7 @@
         "dev-watch": "node scripts/dev-watch.js",
         "server-only": "bonezegei src/http.bzg",
         "dev:once": "npm run encode-assets && bonezegei src/http.bzg",
-        "mp-server": "node server/multiplayerServer.js",
-        "mp-dev": "npm run encode-assets && bonezegei src/http.bzg && node server/multiplayerServer.js"
+        "mp-server": "node server/multiplayerServer.js"
     },
     "dependencies": {
         "ws": "^8.21.3"
