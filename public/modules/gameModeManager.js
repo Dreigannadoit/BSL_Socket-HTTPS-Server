@@ -241,6 +241,24 @@ export class GameModeManager {
         return this.mode;
     }
 
+    // Public wrapper around _setStartTriggerBlocking for callers outside
+    // this class's own mode lifecycle — currently just multiplayerManager.js,
+    // which drives StartTrigger directly off "2-Player Rush" round
+    // lifecycle (passable once the host starts the match, solid again once
+    // the session ends) rather than through selectMode()/_exitToSpawn().
+    setStartTriggerPassable(passable) {
+        this._setStartTriggerBlocking(!passable);
+    }
+
+    // Read-only access to the "Collectables" marker points gathered during
+    // level load — used by multiplayerManager.js so 2-Player Rush can draw
+    // its own (host-colored/guest-colored) orb sets from the same authored
+    // pool Time Trial/Spawn Chase use, without re-traversing the level GLB
+    // a second time. { center: THREE.Vector3, radius: number }[]
+    getCollectableCandidates() {
+        return this.collectableCandidates;
+    }
+
     // Called from Hotspot_1's mode-select menu.
     selectMode(mode) {
         if (!this.startTriggerMesh || !this.endTriggerMesh) return; // nothing to run without both triggers

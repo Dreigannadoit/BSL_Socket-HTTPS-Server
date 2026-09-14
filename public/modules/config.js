@@ -722,3 +722,48 @@ export const ROUTE_TRIGGER_POPUP_HEIGHT = 1.5;
 // here since each route trigger's own enter radius is computed from its
 // authored geometry rather than being one shared constant.
 export const ROUTE_TRIGGER_EXIT_BUFFER = 0.25;
+
+// ── 2-Player Rush (multiplayer) ──
+// See server/multiplayerServer.js and multiplayerManager.js. BSL itself
+// can't host this (no concurrency primitives — see README-MULTIPLAYER.md),
+// so a small Node process is the actual multiplayer "server" the host runs
+// alongside the BSL static file server; both browsers are thin clients of
+// it. This block is just the shared tuning/identity constants both the
+// client UI and multiplayerManager.js read from.
+//
+// Port 5150 — deliberately NOT 5050 (BSL's own static server) or 5051
+// (scripts/dev-watch.js's live-reload SSE server, LIVERELOAD_PORT) since
+// both of those are already spoken for on the host's machine.
+export const MP_DEFAULT_PORT = 5150; // must match server/multiplayerServer.js's default
+export const MP_TOTAL_ROUNDS = 3;
+export const MP_ORB_COUNTS_BY_ROUND = [10, 20, 30];
+export const MP_COUNTDOWN_SECONDS = 5;
+export const MP_ROUND_END_DISPLAY_SECONDS = 3;
+export const MP_TRANSFORM_SEND_HZ = 20; // how often each client reports its own ball transform
+
+// Host stays the ball's normal materials/colors; the guest gets a flat
+// recolor so the two are unmistakable at a glance — orange reads clearly
+// against the host's own default coloring, unlike the earlier green (too
+// close to the host ball to tell apart at a glance). Orbs use each side's
+// same hue as its ball specifically so "whose orb is this" reads instantly
+// even from a distance, before the player is close enough to make out the
+// ball itself.
+export const MP_GUEST_BALL_COLOR = 0xff8800;
+export const MP_HOST_ORB_COLOR = 0x66ccff;
+export const MP_GUEST_ORB_COLOR = 0xff8800;
+
+// Ball speed cap for the whole 2-Player Rush session (both host and
+// guest) — applied once the host actually starts the match (see
+// multiplayerManager.js's _onRoundStart) and reset back to Free Roam's
+// MAX_SPEED on exit, same pattern as GameModeManager's per-mode speeds.
+export const MP_MAX_SPEED = 8.4;
+
+// The remote player's ball is simulated as a CANNON.Body.KINEMATIC proxy
+// (driven directly by network position, not forces) rather than a second
+// full dynamic body — see multiplayerManager.js's _createRemoteBall(). That
+// still participates in cannon-es's narrowphase/solver against the local
+// DYNAMIC ball, so contact pushes the LOCAL ball away realistically; since
+// both machines run this same setup with the roles reversed, the net
+// effect across both simulations is a normal-feeling two-way shove even
+// though neither side's engine ever computes true two-body dynamics.
+export const MP_REMOTE_BALL_SMOOTHING = 0.35; // 0-1 per-frame lerp toward the latest received transform, softens network jitter

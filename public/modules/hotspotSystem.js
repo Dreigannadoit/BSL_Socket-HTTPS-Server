@@ -372,20 +372,16 @@ const HOTSPOT_CONTENT = {
                         <button data-mode="spawnchase">Select</button>
                     </div>
 
-                    <div class="start_menu coming_soon">
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <br>
-                        <p><b>Under Development</b></p>
-                        <h1>2-Player rush</h1>
-                        <p>Compete with your freinds by collecting 20 orbs scattered throughout the map. The firts one to collect and bring and reach the end checkpoint wins. </p>
+                    <div class="start_menu" data-slide="two_player_rush">
+                        <div class="two_player_rush_body">
+                            <br>
+                            <br>
+                            <h1>2-Player Rush</h1>
+                            <p>Race a friend across 3 rounds of orb collection (10 / 20 / 30 orbs). Host from this
+                                machine, or join someone else's game over the network.</p>
+                            <br>
+                            <button data-tworush-select>Select</button>
+                        </div>
                     </div>
 
                     <div class="start_menu coming_soon">
@@ -461,6 +457,25 @@ const HOTSPOT_CONTENT = {
                     if (context.onSelectMode) context.onSelectMode(btn.dataset.mode);
                 });
             });
+
+            // 2-Player Rush deliberately does NOT go through
+            // context.onSelectMode/GameModeManager — selecting a normal
+            // mode makes StartTrigger passable immediately (see
+            // GameModeManager.selectMode()), but the host needs to stay
+            // penned in the spawn room until a guest actually joins. So
+            // its "Select" button hands the click straight to
+            // MultiplayerManager (wired in main.js as
+            // context.onOpenTwoPlayerRush), which takes over rendering
+            // *inside* this same slide (host/join sub-screen) rather than
+            // changing the popup's overall content or touching
+            // StartTrigger at all.
+            const twoPlayerRushBtn = popupEl.querySelector("[data-tworush-select]");
+            if (twoPlayerRushBtn) {
+                const body = popupEl.querySelector(".two_player_rush_body");
+                twoPlayerRushBtn.addEventListener("click", () => {
+                    if (context.onOpenTwoPlayerRush) context.onOpenTwoPlayerRush(body);
+                });
+            }
         },
     },
     Hotspot_2: {
@@ -1008,6 +1023,21 @@ export class HotspotSystem {
         }
     }
 
+    // Hides every registered hotspot, no exceptions — used for 2-Player
+    // Rush, where every hotspot doubles as a per-round spawn point (see
+    // multiplayerManager.js's _onRoundStart, which sends the server's
+    // authored hotspot list) but should never be seen or poppable as a
+    // menu mid-match: the ball is teleported directly onto one each round
+    // rather than walking into its trigger radius, so nothing is lost by
+    // pulling the marker (and its popup) out of play entirely.
+    hideAll() {
+        for (const hotspot of this.hotspots) {
+            hotspot.hidden = true;
+            if (hotspot.node) hotspot.node.visible = false;
+        }
+        if (this.activeHotspot) this._exit();
+    }
+
     // Brings every hotspot back — called on selecting Free Roam, or when a
     // Speedrun/Time Trial run ends (success, failure, or is abandoned).
     restoreAll() {
@@ -1015,6 +1045,20 @@ export class HotspotSystem {
             hotspot.hidden = false;
             if (hotspot.node) hotspot.node.visible = true;
         }
+    }
+
+    // Hides/shows exactly one named hotspot, leaving every other one alone
+    // — unlike hideAllExcept()/restoreAll() above, which are all-or-nothing
+    // (used by GameModeManager's Speedrun/Time Trial lockdown). 2-Player
+    // Rush only ever needs to pull Hotspot_1 itself out of play (see
+    // multiplayerManager.js's host lockdown) while leaving Hotspot_2..5
+    // exactly as they were.
+    setHotspotHidden(name, hidden) {
+        const hotspot = this.hotspots.find((h) => h.name === name);
+        if (!hotspot) return;
+        hotspot.hidden = hidden;
+        if (hotspot.node) hotspot.node.visible = !hidden;
+        if (hidden && this.activeHotspot === hotspot) this._exit();
     }
 
     // Dev-tool hook: fires a hotspot's popup by name without requiring the

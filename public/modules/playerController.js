@@ -489,6 +489,27 @@ export class PlayerController {
         this.prevTargetZ = 0;
         this.reversalTimer = 0; // cancel any in-progress skid once input is let go
 
+        // A bounce (see wallHitPending's handling in update()) takes
+        // priority over BOTH branches below — ambient deceleration and
+        // slope-sliding alike — exactly like _applyInput gives it
+        // priority over the accel curve. This has to run before the
+        // slope check specifically: that branch returns early, so a
+        // stationary player standing on any kind of slope would never
+        // reach the bounce blend at all otherwise. Without this, a
+        // stationary player's hit just got soaked up by ambient decel
+        // (soft enough, and compounded by floor friction, that they
+        // barely moved), reading as an immovable wall instead of
+        // something they could bounce off of. Blending toward 0 (rather
+        // than snapping velocity straight to it, or skipping the blend
+        // entirely) reuses the same knockback feel _applyInput already
+        // gives a moving player.
+        if (this.bounceTimer > 0) {
+            const blended = this._blendBounce(dt, 0, 0);
+            ballBody.velocity.x = blended.x;
+            ballBody.velocity.z = blended.z;
+            return;
+        }
+
         const slopeAngle = Math.acos(THREE.MathUtils.clamp(this.groundNormal.y, -1, 1));
 
         if (this.isGrounded && slopeAngle > SLIDE_MIN_SLOPE) {
@@ -516,6 +537,23 @@ export class PlayerController {
         const decelEase = 1 - Math.exp(-DECEL_RATE * dt);
         ballBody.velocity.x -= ballBody.velocity.x * decelEase;
         ballBody.velocity.z -= ballBody.velocity.z * decelEase;
+    }
+
+    // Advances bounceTimer and returns the blended {x, z} velocity
+    // partway between the impact's captured bounceVelocity and whatever
+    // the caller wants to be steering toward this frame (the player's own
+    // commanded velocity from _applyInput, or 0/0 — "at rest" — from
+    // _applyNoInput). Shared so a wall/player-collision bounce reads the
+    // same whether or not the player receiving it happens to be holding a
+    // movement key that frame.
+    _blendBounce(dt, targetVelX, targetVelZ) {
+        this.bounceTimer -= dt;
+        const t = 1 - Math.max(this.bounceTimer / BOUNCE_DURATION, 0);
+        const blend = t * t * (3 - 2 * t);
+        return {
+            x: this.bounceVelocity.x * (1 - blend) + targetVelX * blend,
+            z: this.bounceVelocity.z * (1 - blend) + targetVelZ * blend,
+        };
     }
 
     _applyInput(dt, targetX, targetZ) {
@@ -611,11 +649,9 @@ export class PlayerController {
         let targetVelY = moveDir.y * this.maxSpeed * upSlopeBoost * speedFraction * hotspotSpeedScale;
 
         if (this.bounceTimer > 0) {
-            this.bounceTimer -= dt;
-            const t = 1 - Math.max(this.bounceTimer / BOUNCE_DURATION, 0);
-            const blend = t * t * (3 - 2 * t);
-            targetVelX = this.bounceVelocity.x * (1 - blend) + targetVelX * blend;
-            targetVelZ = this.bounceVelocity.z * (1 - blend) + targetVelZ * blend;
+            const blended = this._blendBounce(dt, targetVelX, targetVelZ);
+            targetVelX = blended.x;
+            targetVelZ = blended.z;
         }
 
         // Reversal skid blend — slides from the captured old-direction

@@ -27,6 +27,7 @@ import { loadLevel } from "./levelLoader.js";
 import { LoadingScreen } from "./loadingScreen.js";
 import { PlayerEntrance } from "./playerEntrance.js";
 import { PlayerExit } from "./playerExit.js";
+import { MultiplayerManager } from "./multiplayerManager.js";
 import { BALL_RADIUS, HOTSPOT_STUCK_DURATION, GLB_URL, GAME_MODE_SPEEDRUN } from "./config.js";
 
 // Boots the whole game — scene, physics, ball, camera, hotspots, game
@@ -158,6 +159,11 @@ export function startGame({ levelUrl = GLB_URL, bgMusicTrack = "home" } = {}) {
         // Ducks/restores the background music while an H2-H5 narration
         // clip plays — see BackgroundMusicManager.setDucked.
         onNarrationStateChange: (isPlaying) => backgroundMusic.setDucked(isPlaying),
+        // "2-Player rush" deliberately bypasses onSelectMode above — see
+        // hotspotSystem.js's comment on that button and multiplayerManager.js
+        // for why (StartTrigger has to stay blocking/Hotspot_1 has to come
+        // out of play, neither of which GameModeManager.selectMode() does).
+        onOpenTwoPlayerRush: (containerEl) => multiplayerManager.showHostJoinScreen(containerEl),
     });
 
     // ── Game modes (Free Roam / Speedrun / Time Trial) ──
@@ -204,6 +210,27 @@ export function startGame({ levelUrl = GLB_URL, bgMusicTrack = "home" } = {}) {
                 window.location.href = url;
             });
         },
+    });
+
+    // ── 2-Player Rush (LAN multiplayer) ──
+    // See multiplayerManager.js + server/multiplayerServer.js. `createBall`
+    // is passed through (not called here) so the manager can build the
+    // networked opponent's visual+physics proxy on demand, using the exact
+    // same loader/fallback path the local player's own ball uses.
+    const multiplayerManager = new MultiplayerManager({
+        scene,
+        world,
+        ballMesh,
+        ballBody,
+        ballMaterial,
+        player,
+        audioManager,
+        hotspotSystem,
+        routeTriggerSystem,
+        playerEntrance,
+        gameModeManager,
+        createBallVisual: createBall,
+        getSpawnPos: () => levelSpawnPos,
     });
 
     // ── Dev tools panel (right-middle of screen) ──
@@ -285,6 +312,7 @@ export function startGame({ levelUrl = GLB_URL, bgMusicTrack = "home" } = {}) {
         fpsCounter.update(rawDt);
 
         player.update(dt);
+        multiplayerManager.preStep();
         world.step(1 / 60, dt, 10);
 
         // Sync angular velocity after physics integration
@@ -325,6 +353,7 @@ export function startGame({ levelUrl = GLB_URL, bgMusicTrack = "home" } = {}) {
         gameModeManager.update(dt, ballMesh.position, clock.elapsedTime);
         movableObjectSystem.update(ballMesh.position, clock.elapsedTime);
         routeTriggerSystem.update(ballMesh.position, clock.elapsedTime);
+        multiplayerManager.update(dt, clock.elapsedTime, ballMesh.position, ballBody.quaternion);
         // One frame behind (uses this frame's hotspot check, applied to next
         // frame's movement) — same lag every other hotspot-driven system here
         // already has, and not perceptible at 60fps.
