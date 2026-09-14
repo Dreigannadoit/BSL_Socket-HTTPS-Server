@@ -489,6 +489,27 @@ export class PlayerController {
         this.prevTargetZ = 0;
         this.reversalTimer = 0; // cancel any in-progress skid once input is let go
 
+        // A bounce (see wallHitPending's handling in update()) takes
+        // priority over BOTH branches below — ambient deceleration and
+        // slope-sliding alike — exactly like _applyInput gives it
+        // priority over the accel curve. This has to run before the
+        // slope check specifically: that branch returns early, so a
+        // stationary player standing on any kind of slope would never
+        // reach the bounce blend at all otherwise. Without this, a
+        // stationary player's hit just got soaked up by ambient decel
+        // (soft enough, and compounded by floor friction, that they
+        // barely moved), reading as an immovable wall instead of
+        // something they could bounce off of. Blending toward 0 (rather
+        // than snapping velocity straight to it, or skipping the blend
+        // entirely) reuses the same knockback feel _applyInput already
+        // gives a moving player.
+        if (this.bounceTimer > 0) {
+            const blended = this._blendBounce(dt, 0, 0);
+            ballBody.velocity.x = blended.x;
+            ballBody.velocity.z = blended.z;
+            return;
+        }
+
         const slopeAngle = Math.acos(THREE.MathUtils.clamp(this.groundNormal.y, -1, 1));
 
         if (this.isGrounded && slopeAngle > SLIDE_MIN_SLOPE) {
@@ -510,24 +531,6 @@ export class PlayerController {
                 ballBody.velocity.x *= scale;
                 ballBody.velocity.z *= scale;
             }
-            return;
-        }
-
-        // A bounce (see wallHitPending's handling in update()) takes
-        // priority over ambient deceleration, exactly like _applyInput
-        // gives it priority over the accel curve — otherwise a player
-        // standing still with no input never got anything but this
-        // gentle decel to react to a hit, which is soft enough (and
-        // compounds with floor friction) that a stationary player barely
-        // moved when bumped, reading as an immovable wall instead of
-        // something they could bounce off of. Blending toward 0 (rather
-        // than snapping velocity straight to it, or skipping the blend
-        // entirely) reuses the same knockback feel _applyInput already
-        // gives a moving player.
-        if (this.bounceTimer > 0) {
-            const blended = this._blendBounce(dt, 0, 0);
-            ballBody.velocity.x = blended.x;
-            ballBody.velocity.z = blended.z;
             return;
         }
 

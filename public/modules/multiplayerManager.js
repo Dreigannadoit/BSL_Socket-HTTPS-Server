@@ -350,6 +350,7 @@ export class MultiplayerManager {
         this.gameModeManager.setStartTriggerPassable(true);
         this.player.setMaxSpeed(MP_MAX_SPEED);
         this.audioManager.setMaxSpeed(MP_MAX_SPEED);
+        this._hideStatusOverlay();
 
         this.phase = "countdown";
         this.round = msg.round;
@@ -387,7 +388,7 @@ export class MultiplayerManager {
     }
 
     _spawnOrbMesh(x, y, z, hexColor) {
-        const geometry = new THREE.SphereGeometry(0.32, 16, 16);
+        const geometry = new THREE.SphereGeometry(0.5, 16, 16);
         const material = new THREE.MeshStandardMaterial({
             color: hexColor,
             emissive: hexColor,
@@ -521,7 +522,7 @@ export class MultiplayerManager {
                 const dy = ballPosition.y - orb.y;
                 const dz = ballPosition.z - orb.z;
                 const distSq = dx * dx + dy * dy + dz * dz;
-                const pickupRadius = BALL_RADIUS + 0.35;
+                const pickupRadius = BALL_RADIUS + 0.22;
                 if (distSq <= pickupRadius * pickupRadius) {
                     this.client.send("orb_collected", { orbId });
                 }
@@ -555,9 +556,20 @@ export class MultiplayerManager {
         this._overlays.status.innerHTML = "";
         const btn = document.createElement("button");
         btn.textContent = "Start 2-Player Rush";
-        btn.style.cssText = "padding: 8px 20px; font-size: 14px; cursor: pointer;";
+        btn.style.cssText = "padding: 8px 20px; font-size: 14px; cursor: pointer; border: none; background: transparent; color: #fff;";
         btn.addEventListener("click", () => this._startGameClicked());
         this._overlays.status.appendChild(btn);
+    }
+
+    // Tears down the lobby status overlay (host's "Start 2-Player Rush"
+    // button, or the guest's "waiting on host" text) — called once the
+    // match actually begins, since neither is useful once rounds are
+    // underway and the button was otherwise just sitting there onscreen
+    // for the rest of the session.
+    _hideStatusOverlay() {
+        if (!this._overlays.status) return;
+        this._overlays.status.remove();
+        this._overlays.status = null;
     }
 
     _buildExitButton(label) {
