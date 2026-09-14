@@ -3,6 +3,8 @@ import * as CANNON from "cannon-es";
 import { MultiplayerClient } from "./multiplayerClient.js";
 import {
     BALL_RADIUS,
+    BLOOM_LAYER,
+    MAX_SPEED,
     MP_DEFAULT_PORT,
     MP_TOTAL_ROUNDS,
     MP_COUNTDOWN_SECONDS,
@@ -12,6 +14,7 @@ import {
     MP_HOST_ORB_COLOR,
     MP_GUEST_ORB_COLOR,
     MP_REMOTE_BALL_SMOOTHING,
+    MP_MAX_SPEED,
 } from "./config.js";
 
 const ROLE_LABEL = { host: "Host", guest: "Guest" };
@@ -242,12 +245,17 @@ export class MultiplayerManager {
     // side should be able to wander into another mode or navigate away
     // mid-match) ──
     _applyLockdown() {
-        this.hotspotSystem.setHotspotHidden("Hotspot_1", true);
+        // Every hotspot doubles as a per-round spawn point in this mode
+        // (see _onRoundStart) — the player only ever needs to be
+        // teleported onto one, never to see or trigger its popup, so all
+        // of them (not just Hotspot_1) get pulled out of play for the
+        // whole session.
+        this.hotspotSystem.hideAll();
         this.routeTriggerSystem.setActive(false);
     }
 
     _releaseLockdown() {
-        this.hotspotSystem.setHotspotHidden("Hotspot_1", false);
+        this.hotspotSystem.restoreAll();
         this.routeTriggerSystem.setActive(true);
     }
 
@@ -332,6 +340,17 @@ export class MultiplayerManager {
 
     // ── Round lifecycle ──
     _onRoundStart(msg) {
+        // Fires (via the server's broadcast) on both the host's and the
+        // guest's client the moment the host clicks "Start 2-Player Rush"
+        // — the one event both sides actually receive for "the game has
+        // begun", so this is where StartTrigger opens up and the match
+        // speed cap kicks in for this client's own ball. Harmless to
+        // repeat on round 2/3's round_start too, since both are already
+        // in the states being set.
+        this.gameModeManager.setStartTriggerPassable(true);
+        this.player.setMaxSpeed(MP_MAX_SPEED);
+        this.audioManager.setMaxSpeed(MP_MAX_SPEED);
+
         this.phase = "countdown";
         this.round = msg.round;
         this.scores = msg.scores;
@@ -368,17 +387,23 @@ export class MultiplayerManager {
     }
 
     _spawnOrbMesh(x, y, z, hexColor) {
-        const geometry = new THREE.SphereGeometry(0.22, 16, 16);
+        const geometry = new THREE.SphereGeometry(0.32, 16, 16);
         const material = new THREE.MeshStandardMaterial({
             color: hexColor,
             emissive: hexColor,
             emissiveIntensity: 1.8,
             roughness: 0.3,
             metalness: 0,
-            toneMapped: false,
+            toneMapped: false, // let emissive push past 1.0 so bloom actually picks it up
         });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(x, y, z);
+        // Was missing — same BLOOM_LAYER treatment GameModeManager's own
+        // orbs get (see gameModeManager.js's _createOrb) — without this
+        // the orb never feeds BloomRenderer's isolated bloom pass, so it
+        // rendered as a flat, unlit-looking sphere despite the emissive
+        // material above.
+        mesh.layers.enable(BLOOM_LAYER);
         this.scene.add(mesh);
         return mesh;
     }
@@ -617,6 +642,14 @@ export class MultiplayerManager {
         this._removeRemoteBall();
         this._releaseLockdown();
         this.player.setFrozen(false);
+
+        // Mirror GameModeManager's own _exitToSpawn() reset — StartTrigger
+        // blocks again and the speed cap goes back to Free Roam's default,
+        // same as leaving any other mode, since 2-Player Rush never routes
+        // through selectMode()/that reset itself.
+        this.gameModeManager.setStartTriggerPassable(false);
+        this.player.setMaxSpeed(MAX_SPEED);
+        this.audioManager.setMaxSpeed(MAX_SPEED);
 
         for (const key of Object.keys(this._overlays)) {
             this._overlays[key]?.remove();

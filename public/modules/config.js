@@ -742,13 +742,21 @@ export const MP_ROUND_END_DISPLAY_SECONDS = 3;
 export const MP_TRANSFORM_SEND_HZ = 20; // how often each client reports its own ball transform
 
 // Host stays the ball's normal materials/colors; the guest gets a flat
-// recolor so the two are unmistakable at a glance, matching "green" from
-// the spec. Orbs use lighter/more saturated variants of the same two hues
-// specifically so "whose orb is this" reads instantly even from a
-// distance, before the player is close enough to make out the ball itself.
-export const MP_GUEST_BALL_COLOR = 0x2ecc71;
+// recolor so the two are unmistakable at a glance — orange reads clearly
+// against the host's own default coloring, unlike the earlier green (too
+// close to the host ball to tell apart at a glance). Orbs use each side's
+// same hue as its ball specifically so "whose orb is this" reads instantly
+// even from a distance, before the player is close enough to make out the
+// ball itself.
+export const MP_GUEST_BALL_COLOR = 0xff8800;
 export const MP_HOST_ORB_COLOR = 0x66ccff;
-export const MP_GUEST_ORB_COLOR = 0x2ecc71;
+export const MP_GUEST_ORB_COLOR = 0xff8800;
+
+// Ball speed cap for the whole 2-Player Rush session (both host and
+// guest) — applied once the host actually starts the match (see
+// multiplayerManager.js's _onRoundStart) and reset back to Free Roam's
+// MAX_SPEED on exit, same pattern as GameModeManager's per-mode speeds.
+export const MP_MAX_SPEED = 8.4;
 
 // The remote player's ball is simulated as a CANNON.Body.KINEMATIC proxy
 // (driven directly by network position, not forces) rather than a second

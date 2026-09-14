@@ -1023,6 +1023,21 @@ export class HotspotSystem {
         }
     }
 
+    // Hides every registered hotspot, no exceptions — used for 2-Player
+    // Rush, where every hotspot doubles as a per-round spawn point (see
+    // multiplayerManager.js's _onRoundStart, which sends the server's
+    // authored hotspot list) but should never be seen or poppable as a
+    // menu mid-match: the ball is teleported directly onto one each round
+    // rather than walking into its trigger radius, so nothing is lost by
+    // pulling the marker (and its popup) out of play entirely.
+    hideAll() {
+        for (const hotspot of this.hotspots) {
+            hotspot.hidden = true;
+            if (hotspot.node) hotspot.node.visible = false;
+        }
+        if (this.activeHotspot) this._exit();
+    }
+
     // Brings every hotspot back — called on selecting Free Roam, or when a
     // Speedrun/Time Trial run ends (success, failure, or is abandoned).
     restoreAll() {
